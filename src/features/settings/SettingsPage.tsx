@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
-import { Archive, Database, Download, HardDrive, History, RotateCcw, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import {
+  Archive,
+  Cloud,
+  Database,
+  Download,
+  HardDrive,
+  History,
+  Languages,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import type { LengthUnit } from '@/lib/types';
 import { useProject, useRestorePoints, useSettings } from '@/lib/hooks/data';
@@ -18,14 +31,24 @@ import {
   type ParsedBackup,
 } from '@/lib/backup/backup';
 import { downloadBlob } from '@/lib/download';
-import { formatBytes, formatDateTime, timeAgo } from '@/lib/format';
-import { UNIT_LABEL } from '@/lib/units';
-import { Button } from '@/components/ui/Button';
+import { freeUpSpace, localFileUsage } from '@/lib/files/repo';
+import { deleteFilesForGood, unusedFiles } from '@/lib/db/trash';
+import { localCounts, serverCounts, syncEngine, useSyncStatus } from '@/lib/sync/engine';
+import { listHistory, restoreHistory, type HistoryEntry } from '@/lib/sync/history';
+import { SYNCED_TABLES } from '@/lib/sync/tables';
+import { useAuth } from '@/lib/sync/auth';
+import { unitLabel } from '@/lib/units';
+import { useI18n } from '@/i18n';
+import { fmtBytes, fmtDateTime, num, timeAgo } from '@/i18n/format';
+import { setPrefs } from '@/i18n/prefs';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Callout, LoadingBlock, PageHeader } from '@/components/ui/Display';
 import { Checkbox, CommitInput, Field, Segmented } from '@/components/ui/Form';
 import { LengthField } from '@/components/ui/MeasureInput';
 import { Dialog } from '@/components/ui/Overlay';
 import { useConfirm } from '@/components/ui/Confirm';
+import { EnglishField } from '@/components/translate/EnglishField';
+import { SignOutButton } from '@/app/auth/AuthScreens';
 import { ImageProviderSettings, TextProviderSettings } from './ProviderSettings';
 
 function Section({
@@ -42,10 +65,10 @@ function Section({
   icon?: typeof HardDrive;
 }) {
   return (
-    <section id={id} className="scroll-mt-6 border-t border-line py-10 first:border-t-0 first:pt-0">
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <section id={id} className="scroll-mt-6 border-t border-line py-8 first:border-t-0 first:pt-0 sm:py-10">
+      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
         <div>
-          <h2 className="display flex items-center gap-2 text-[26px]">
+          <h2 className="display flex items-center gap-2 text-[24px] sm:text-[26px]">
             {Icon && <Icon size={18} strokeWidth={1.5} className="text-ink-3" />}
             {title}
           </h2>
@@ -57,16 +80,149 @@ function Section({
   );
 }
 
+function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`rounded-md border border-line bg-surface p-4 sm:p-5 ${className}`}>{children}</div>;
+}
+
+/* ------------------------------------------------------------------ */
+/* Language                                                             */
+/* ------------------------------------------------------------------ */
+
+function LanguageSection() {
+  const { t, prefs } = useI18n();
+  const L = t.lang;
+  return (
+    <div className="grid max-w-[720px] gap-5">
+      <Field label={L.language}>
+        <Segmented
+          value={prefs.lang}
+          onChange={(v) => setPrefs({ lang: v })}
+          options={[
+            { value: 'ar', label: <span lang="ar">{L.arabic}</span> },
+            { value: 'en', label: <span lang="en">{L.english}</span> },
+          ]}
+        />
+      </Field>
+      {prefs.lang === 'ar' && (
+        <Field label={L.digits}>
+          <Segmented
+            value={prefs.digits}
+            onChange={(v) => setPrefs({ digits: v })}
+            options={[
+              { value: 'latn', label: L.digitsLatin },
+              { value: 'arab', label: L.digitsArabic },
+            ]}
+          />
+        </Field>
+      )}
+      <Field label={L.calendar}>
+        <Segmented
+          value={prefs.calendar}
+          onChange={(v) => setPrefs({ calendar: v })}
+          options={[
+            { value: 'gregory', label: L.gregorian },
+            { value: 'islamic-umalqura', label: L.hijri },
+          ]}
+        />
+      </Field>
+      <p className="text-[12px] text-ink-3">{L.hint}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Account & cloud                                                      */
+/* ------------------------------------------------------------------ */
+
+function CloudSection() {
+  const { t } = useI18n();
+  const S = t.settings;
+  const auth = useAuth();
+  const sync = useSyncStatus();
+  const [check, setCheck] = useState<{ local: number; server: number; mismatched: string[] } | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const verify = async () => {
+    setChecking(true);
+    try {
+      await syncEngine.syncNow();
+      const [l, s] = await Promise.all([localCounts(), serverCounts()]);
+      const mismatched = SYNCED_TABLES.filter((k) => (l[k] ?? 0) !== (s[k] ?? 0));
+      setCheck({
+        local: SYNCED_TABLES.reduce((a, k) => a + (l[k] ?? 0), 0),
+        server: SYNCED_TABLES.reduce((a, k) => a + (s[k] ?? 0), 0),
+        mismatched,
+      });
+    } catch (e) {
+      toast.error(S.verifyFailed, { description: (e as Error).message });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const lastSync = sync.lastPullAt ?? sync.lastPushAt;
+  return (
+    <div className="flex max-w-[720px] flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="eyebrow">{S.signedInAs}</div>
+            <div className="mt-1 truncate text-[14px] text-ink" dir="ltr">
+              {auth.status === 'signed-in' ? auth.email : '—'}
+            </div>
+          </div>
+          <SignOutButton />
+        </div>
+      </Card>
+      <Card>
+        <dl className="grid gap-3 text-[13px] sm:grid-cols-2">
+          <div>
+            <dt className="eyebrow">{t.sync.cloudStatus}</dt>
+            <dd className={`mt-1 ${sync.error ? 'text-danger' : !sync.online ? 'text-warn' : 'text-ink'}`}>
+              {sync.error ? t.sync.lastError(sync.error.message) : !sync.online ? t.sync.offline : sync.pending ? t.sync.pendingChanges(sync.pending) : t.sync.saved}
+            </dd>
+          </div>
+          <div>
+            <dt className="eyebrow">{S.files}</dt>
+            <dd className="mt-1 text-ink">{t.sync.pendingFiles(sync.uploads.queued, fmtBytes(sync.uploads.queuedBytes))}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dd className="text-[12px] text-ink-3">{lastSync ? t.sync.lastSynced(timeAgo(new Date(lastSync).toISOString())) : t.sync.neverSynced}</dd>
+          </div>
+        </dl>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" icon={RefreshCw} onClick={() => void syncEngine.syncNow()} loading={sync.pushing || sync.pulling}>
+            {t.sync.syncNow}
+          </Button>
+          <Button size="sm" variant="ghost" icon={ShieldCheck} onClick={verify} loading={checking}>
+            {S.verify}
+          </Button>
+        </div>
+        {check && (
+          <Callout tone={check.mismatched.length ? 'warn' : 'info'} className="mt-4">
+            {check.mismatched.length ? S.verifyMismatch(check.local, check.server) : S.verifyOk(check.server)}
+          </Callout>
+        )}
+      </Card>
+      <p className="text-[12px] leading-relaxed text-ink-3">{S.cloudExplain}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Device storage                                                       */
+/* ------------------------------------------------------------------ */
+
 function StorageInfo() {
+  const { t } = useI18n();
+  const S = t.settings;
+  const confirm = useConfirm();
   const [info, setInfo] = useState<{
     usage?: number;
     quota?: number;
     persisted?: boolean;
-    images: number;
-    imageBytes: number;
-    rooms: number;
-    refs: number;
-    versions: number;
+    files: { total: number; freeable: number; pending: number };
+    unused: { id: string; name: string; size: number }[];
   } | null>(null);
   const load = async () => {
     let usage: number | undefined;
@@ -80,82 +236,201 @@ function StorageInfo() {
     } catch {
       /* not available */
     }
-    let imageBytes = 0;
-    let images = 0;
-    await db.files.each((f) => {
-      images++;
-      imageBytes += f.size;
-    });
-    setInfo({
-      usage,
-      quota,
-      persisted,
-      images,
-      imageBytes,
-      rooms: await db.rooms.count(),
-      refs: await db.references.count(),
-      versions: await db.versions.count(),
-    });
+    setInfo({ usage, quota, persisted, files: await localFileUsage(), unused: await unusedFiles() });
   };
   useEffect(() => {
-    load();
+    void load();
   }, []);
-  if (!info) return <LoadingBlock label="Measuring storage…" />;
+  if (!info) return <LoadingBlock label={S.measuring} />;
+  const unusedBytes = info.unused.reduce((a, f) => a + f.size, 0);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-[720px] flex-col gap-4">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13px] sm:grid-cols-4">
         <div>
-          <dt className="eyebrow">Used</dt>
-          <dd className="mt-1 tabular">{info.usage !== undefined ? formatBytes(info.usage) : '—'}</dd>
+          <dt className="eyebrow">{S.used}</dt>
+          <dd className="mt-1 tabular">{info.usage !== undefined ? fmtBytes(info.usage) : '—'}</dd>
         </div>
         <div>
-          <dt className="eyebrow">Available</dt>
-          <dd className="mt-1 tabular">{info.quota !== undefined ? formatBytes(info.quota) : '—'}</dd>
+          <dt className="eyebrow">{S.available}</dt>
+          <dd className="mt-1 tabular">{info.quota !== undefined ? fmtBytes(info.quota) : '—'}</dd>
         </div>
         <div>
-          <dt className="eyebrow">Images</dt>
-          <dd className="mt-1 tabular">
-            {info.images} · {formatBytes(info.imageBytes)}
-          </dd>
+          <dt className="eyebrow">{S.cachedFiles}</dt>
+          <dd className="mt-1 tabular">{fmtBytes(info.files.total)}</dd>
         </div>
         <div>
-          <dt className="eyebrow">Records</dt>
-          <dd className="mt-1 tabular">
-            {info.rooms} rooms · {info.refs} refs · {info.versions} versions
-          </dd>
+          <dt className="eyebrow">{S.waitingUpload}</dt>
+          <dd className="mt-1 tabular">{fmtBytes(info.files.pending)}</dd>
         </div>
       </dl>
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 max-w-[460px]">
+            <div className="text-[14px] text-ink">{S.freeUp}</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{S.freeUpHint(fmtBytes(info.files.freeable))}</p>
+          </div>
+          <Button
+            size="sm"
+            disabled={!info.files.freeable}
+            onClick={async () => {
+              const freed = await freeUpSpace();
+              toast.success(S.freed(fmtBytes(freed)));
+              void load();
+            }}
+          >
+            {S.freeUpButton}
+          </Button>
+        </div>
+      </Card>
+      {info.unused.length > 0 && (
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 max-w-[460px]">
+              <div className="text-[14px] text-ink">{S.unusedTitle(info.unused.length)}</div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{S.unusedHint(fmtBytes(unusedBytes))}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="danger"
+              icon={Trash2}
+              onClick={async () => {
+                const r = await confirm({
+                  title: S.unusedConfirmTitle,
+                  tone: 'danger',
+                  confirmLabel: t.trash.deleteForever.replace('…', ''),
+                  typeToConfirm: t.trash.typeWord,
+                  description: S.unusedConfirmBody(info.unused.length),
+                });
+                if (!r.confirmed) return;
+                await deleteFilesForGood(info.unused.map((f) => f.id));
+                toast.success(t.trash.deletedForever);
+                void load();
+              }}
+            >
+              {S.unusedDelete}
+            </Button>
+          </div>
+        </Card>
+      )}
       {info.persisted ? (
         <Callout tone="info" icon={ShieldCheck}>
-          Persistent storage is granted: the browser will not clear this project to free space. Clearing site data manually still deletes it — keep backups.
+          {S.persisted}
         </Callout>
       ) : (
         <Callout
-          tone="warn"
-          title="Storage is not marked persistent"
+          tone="neutral"
           action={
             <Button
               size="sm"
               onClick={async () => {
                 const ok = await navigator.storage?.persist?.();
-                toast[ok ? 'success' : 'error'](
-                  ok ? 'Persistent storage granted' : 'The browser declined. Bookmarking the site or installing it can help; keep regular backups.',
-                );
-                load();
+                toast[ok ? 'success' : 'info'](ok ? S.persistGranted : S.persistDeclined);
+                void load();
               }}
             >
-              Request persistent storage
+              {S.persistRequest}
             </Button>
           }
         >
-          Under heavy disk pressure the browser could clear local data. Request persistence and export backups regularly.
+          {S.notPersisted}
         </Callout>
       )}
     </div>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Cloud history                                                        */
+/* ------------------------------------------------------------------ */
+
+function HistorySection() {
+  const { t, lang } = useI18n();
+  const S = t.settings;
+  const confirm = useConfirm();
+  const [items, setItems] = useState<HistoryEntry[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const load = async (append = false) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const before = append && items?.length ? items[items.length - 1].id : null;
+      const next = await listHistory({ before, limit: 30 });
+      setItems((prev) => (append && prev ? [...prev, ...next] : next));
+      setMore(next.length === 30);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!items)
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <Button size="sm" icon={History} onClick={() => load()} loading={busy}>
+          {S.historyShow}
+        </Button>
+        {error && <p className="text-[12px] text-danger">{error}</p>}
+      </div>
+    );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {items.length === 0 ? (
+        <p className="text-[12.5px] text-ink-3">{S.historyEmpty}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-line rounded-md border border-line bg-surface">
+          {items.map((h) => (
+            <li key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px]" dir="auto">
+                  {(lang === 'ar' ? h.label : h.labelEn) || h.recordId}
+                </div>
+                <div className="text-[11.5px] text-ink-3">
+                  {S.historyTable[h.localTable ?? ''] ?? h.table} · {S.historyReason[h.reason] ?? h.reason} · {fmtDateTime(h.archivedAt)}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                icon={RotateCcw}
+                disabled={!h.localTable}
+                onClick={async () => {
+                  const r = await confirm({ title: S.historyRestoreTitle, confirmLabel: t.common.restore, description: S.historyRestoreBody });
+                  if (!r.confirmed) return;
+                  try {
+                    await restoreHistory(h.id);
+                    toast.success(S.historyRestored);
+                  } catch (e) {
+                    toast.error(S.historyRestoreFailed, { description: (e as Error).message });
+                  }
+                }}
+              >
+                {t.common.restore}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-[12px] text-danger">{error}</p>}
+      {more && (
+        <Button size="sm" variant="ghost" className="self-start" onClick={() => load(true)} loading={busy}>
+          {t.common.showMore}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Backup & restore                                                     */
+/* ------------------------------------------------------------------ */
+
 function BackupSection() {
+  const { t } = useI18n();
+  const S = t.settings;
   const settings = useSettings();
   const points = useRestorePoints() ?? [];
   const confirm = useConfirm();
@@ -169,16 +444,18 @@ function BackupSection() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const doExport = async () => {
-    setExporting('Collecting project data…');
+    setExporting(S.exportCollecting);
     try {
-      const { blob, filename, summary } = await exportBackup({ includeKeys, onProgress: (d, t) => setExporting(`Packing images ${d}/${t}…`) });
+      const { blob, filename, summary, missingFiles } = await exportBackup({
+        includeKeys,
+        onProgress: (stage, d, total) => setExporting(stage === 'files' ? S.exportFiles(d, total) : S.exportPacking),
+      });
       downloadBlob(blob, filename);
       await updateSettings((s) => void (s.lastBackupAt = new Date().toISOString()));
-      toast.success('Backup downloaded', {
-        description: `${summary.rooms} rooms, ${summary.images} images, ${summary.versions} versions · ${formatBytes(blob.size)}`,
-      });
+      toast.success(S.exportDone, { description: S.exportSummary(summary.rooms, summary.images, summary.versions, fmtBytes(blob.size)) });
+      if (missingFiles.length) toast.warning(S.exportMissing(missingFiles.length), { duration: 12000 });
     } catch (e) {
-      toast.error(`Backup failed: ${(e as Error).message}`);
+      toast.error(S.exportFailed((e as Error).message));
     } finally {
       setExporting(null);
     }
@@ -191,36 +468,32 @@ function BackupSection() {
       setUseKeys(false);
       setRestorePoint(true);
     } catch (e) {
-      toast.error(e instanceof BackupError ? e.message : `Could not read the backup: ${(e as Error).message}`);
+      toast.error(e instanceof BackupError ? e.message : S.readFailed((e as Error).message));
     }
   };
 
   const doRestore = async () => {
     if (!parsed) return;
     const r = await confirm({
-      title: 'Replace all current project data?',
+      title: S.restoreConfirmTitle,
       tone: 'danger',
-      confirmLabel: 'Replace project',
-      typeToConfirm: 'REPLACE',
+      confirmLabel: S.restoreConfirm,
+      typeToConfirm: S.replaceWord,
       description: (
         <>
-          Every room, requirement, image, version and library item currently in the studio will be replaced by the backup from{' '}
-          <strong>{formatDateTime(parsed.backup.manifest.createdAt)}</strong>.{' '}
-          {restorePoint
-            ? 'A restore point of the current data is created first, so you can go back.'
-            : 'No restore point will be created — the current data cannot be recovered unless you exported it.'}
+          {S.restoreConfirmBody(fmtDateTime(parsed.backup.manifest.createdAt))} {restorePoint ? S.restoreWithPoint : S.restoreWithoutPoint}
         </>
       ),
     });
     if (!r.confirmed) return;
     setRestoring(true);
     try {
-      await restoreBackup(parsed.backup, { createRestorePoint: restorePoint, useBackupKeys: useKeys, reason: `Before restoring ${parsed.file}` });
-      toast.success('Backup restored');
+      await restoreBackup(parsed.backup, { createRestorePoint: restorePoint, useBackupKeys: useKeys, reason: S.reasonBeforeFile(parsed.file) });
+      toast.success(S.restored, { description: S.restoredHint });
       setParsed(null);
       navigate('/');
     } catch (e) {
-      toast.error(`Restore failed: ${(e as Error).message}`, { description: 'The project was left as it was.' });
+      toast.error(S.restoreFailed((e as Error).message), { description: S.restoreFailedHint });
     } finally {
       setRestoring(false);
     }
@@ -229,37 +502,30 @@ function BackupSection() {
   const s = parsed?.backup.manifest.summary;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="rounded-md border border-line bg-surface p-5">
+    <div className="flex max-w-[760px] flex-col gap-6">
+      <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-[14px] text-ink">Export a backup</div>
-            <p className="mt-1 max-w-[520px] text-[12.5px] leading-relaxed text-ink-3">
-              A single .zip with all project data and every original image (unmodified, with checksums). Last backup:{' '}
-              {settings?.lastBackupAt ? `${timeAgo(settings.lastBackupAt)} (${formatDateTime(settings.lastBackupAt)})` : 'never'}.
+          <div className="min-w-0 max-w-[520px]">
+            <div className="text-[14px] text-ink">{S.exportTitle}</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
+              {S.exportLead}{' '}
+              {S.lastBackup(settings?.lastBackupAt ? `${timeAgo(settings.lastBackupAt)} (${fmtDateTime(settings.lastBackupAt)})` : S.never)}
             </p>
             <div className="mt-3">
-              <Checkbox
-                checked={includeKeys}
-                onChange={setIncludeKeys}
-                label="Include API keys"
-                description="Off by default. Anyone with the file could use your keys."
-              />
+              <Checkbox checked={includeKeys} onChange={setIncludeKeys} label={S.includeKeys} description={S.includeKeysHint} />
             </div>
           </div>
           <Button variant="primary" icon={Download} onClick={doExport} loading={!!exporting}>
-            {exporting ?? 'Export backup'}
+            {exporting ?? S.exportButton}
           </Button>
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-md border border-line bg-surface p-5">
+      <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-[14px] text-ink">Restore from a backup file</div>
-            <p className="mt-1 max-w-[520px] text-[12.5px] leading-relaxed text-ink-3">
-              The file is checked first and a summary is shown. Nothing changes until you confirm.
-            </p>
+          <div className="min-w-0 max-w-[520px]">
+            <div className="text-[14px] text-ink">{S.importTitle}</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{S.importLead}</p>
           </div>
           <input
             ref={fileInput}
@@ -269,29 +535,31 @@ function BackupSection() {
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
-              if (f) onFile(f);
+              if (f) void onFile(f);
             }}
           />
           <Button icon={Upload} onClick={() => fileInput.current?.click()}>
-            Choose backup file
+            {S.chooseBackup}
           </Button>
         </div>
-      </div>
+      </Card>
 
       <div>
         <div className="eyebrow mb-3 flex items-center gap-1.5">
-          <History size={12} /> Restore points
+          <History size={12} /> {S.restorePoints}
         </div>
         {points.length === 0 ? (
-          <p className="text-[12.5px] text-ink-3">Created automatically before a backup is restored. The last five are kept in this browser.</p>
+          <p className="text-[12.5px] text-ink-3">{S.restorePointsEmpty}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-line rounded-md border border-line bg-surface">
             {points.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px]">{p.reason}</div>
+              <li key={p.id} className="flex flex-wrap items-center gap-2 px-4 py-3">
+                <div className="min-w-0 flex-1 basis-[200px]">
+                  <div className="text-[13px]" dir="auto">
+                    {p.reason}
+                  </div>
                   <div className="text-[11.5px] text-ink-3">
-                    {formatDateTime(p.createdAt)} · {p.summary.rooms} rooms · {p.summary.images} images · {p.summary.versions} versions · {formatBytes(p.size)}
+                    {fmtDateTime(p.createdAt)} · {S.pointSummary(p.summary.rooms, p.summary.images, p.summary.versions)} · {fmtBytes(p.size)}
                   </div>
                 </div>
                 <Button
@@ -299,23 +567,23 @@ function BackupSection() {
                   icon={RotateCcw}
                   onClick={async () => {
                     const r = await confirm({
-                      title: 'Return to this restore point?',
+                      title: S.pointRestoreTitle,
                       tone: 'danger',
-                      confirmLabel: 'Restore',
-                      typeToConfirm: 'REPLACE',
-                      description: 'The current project is replaced by this restore point. A new restore point of the current state is created first.',
+                      confirmLabel: t.common.restore,
+                      typeToConfirm: S.replaceWord,
+                      description: S.pointRestoreBody,
                     });
                     if (!r.confirmed) return;
                     try {
                       await restoreFromPoint(p.id);
-                      toast.success('Restored');
+                      toast.success(S.restored);
                       navigate('/');
                     } catch (e) {
                       toast.error((e as Error).message);
                     }
                   }}
                 >
-                  Restore
+                  {t.common.restore}
                 </Button>
                 <Button
                   size="sm"
@@ -326,15 +594,15 @@ function BackupSection() {
                     if (b) downloadBlob(b.blob, `bait-khuzam-restore-point-${p.createdAt.slice(0, 10)}.${b.ext}`);
                   }}
                 >
-                  Download
+                  {t.common.download}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   icon={Trash2}
-                  aria-label="Delete restore point"
+                  aria-label={S.pointDelete}
                   onClick={async () => {
-                    const r = await confirm({ title: 'Delete this restore point?', tone: 'danger', confirmLabel: 'Delete' });
+                    const r = await confirm({ title: S.pointDelete, tone: 'danger', confirmLabel: t.common.delete });
                     if (r.confirmed) await deleteRestorePoint(p.id);
                   }}
                 />
@@ -347,15 +615,15 @@ function BackupSection() {
       <Dialog
         open={!!parsed}
         onOpenChange={(o) => !o && setParsed(null)}
-        title="Restore this backup?"
+        title={S.restoreDialogTitle}
         description={parsed?.file}
         footer={
           <>
             <Button variant="ghost" onClick={() => setParsed(null)}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button variant="danger" icon={Archive} onClick={doRestore} loading={restoring}>
-              Replace current project…
+              {S.replaceButton}
             </Button>
           </>
         }
@@ -363,24 +631,24 @@ function BackupSection() {
         {parsed && s && (
           <div className="flex flex-col gap-4">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[13px]">
-              <dt className="text-ink-3">Created</dt>
-              <dd>{formatDateTime(parsed.backup.manifest.createdAt)}</dd>
-              <dt className="text-ink-3">Project</dt>
-              <dd>{String(s.projectName)}</dd>
-              <dt className="text-ink-3">Rooms</dt>
-              <dd>{String(s.rooms)}</dd>
-              <dt className="text-ink-3">Requirements</dt>
-              <dd>{String(s.requirements)}</dd>
-              <dt className="text-ink-3">Images</dt>
-              <dd>{String(s.images)}</dd>
-              <dt className="text-ink-3">Design versions</dt>
-              <dd>{String(s.versions)}</dd>
-              <dt className="text-ink-3">Library items</dt>
-              <dd>{String(s.libraryItems)}</dd>
+              <dt className="text-ink-3">{S.sumCreated}</dt>
+              <dd>{fmtDateTime(parsed.backup.manifest.createdAt)}</dd>
+              <dt className="text-ink-3">{S.sumProject}</dt>
+              <dd dir="auto">{String(s.projectName)}</dd>
+              <dt className="text-ink-3">{S.sumRooms}</dt>
+              <dd>{num(Number(s.rooms))}</dd>
+              <dt className="text-ink-3">{S.sumRequirements}</dt>
+              <dd>{num(Number(s.requirements))}</dd>
+              <dt className="text-ink-3">{S.sumFiles}</dt>
+              <dd>{num(Number(s.images))}</dd>
+              <dt className="text-ink-3">{S.sumVersions}</dt>
+              <dd>{num(Number(s.versions))}</dd>
+              <dt className="text-ink-3">{S.sumLibrary}</dt>
+              <dd>{num(Number(s.libraryItems))}</dd>
             </dl>
             {parsed.backup.issues.length > 0 ? (
-              <Callout tone="warn" title="Some items could not be verified">
-                <ul className="list-disc pl-4">
+              <Callout tone="warn" title={S.issuesTitle}>
+                <ul className="list-disc ps-4">
                   {parsed.backup.issues.map((i) => (
                     <li key={i}>{i}</li>
                   ))}
@@ -388,19 +656,14 @@ function BackupSection() {
               </Callout>
             ) : (
               <Callout tone="info" icon={ShieldCheck}>
-                All images are present{parsed.backup.manifest.checksums === 'sha-256' ? ' and passed their checksums' : ''}.
+                {parsed.backup.manifest.checksums === 'sha-256' ? S.allFilesChecked : S.allFilesPresent}
               </Callout>
             )}
-            <Checkbox checked={restorePoint} onChange={setRestorePoint} label="Create a restore point of the current project first (recommended)" />
+            <Checkbox checked={restorePoint} onChange={setRestorePoint} label={S.createPoint} />
             {parsed.backup.manifest.includesApiKeys && (
-              <Checkbox
-                checked={useKeys}
-                onChange={setUseKeys}
-                label="Use the API keys stored in the backup"
-                description="Otherwise the keys on this device are kept."
-              />
+              <Checkbox checked={useKeys} onChange={setUseKeys} label={S.useBackupKeys} description={S.useBackupKeysHint} />
             )}
-            <Callout tone="danger">Restoring replaces all current data. This cannot be undone without a restore point or another backup.</Callout>
+            <Callout tone="danger">{S.replaceWarning}</Callout>
           </div>
         )}
       </Dialog>
@@ -408,26 +671,32 @@ function BackupSection() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Page                                                                 */
+/* ------------------------------------------------------------------ */
+
 export function SettingsPage() {
   const project = useProject();
   const settings = useSettings();
+  const { t } = useI18n();
+  const S = t.settings;
+  const trashCount = useTrashCount();
   if (!project || !settings) return <LoadingBlock />;
+  const nav: [string, string][] = [
+    ['language', t.lang.title],
+    ['cloud', S.navCloud],
+    ['safety', S.navSafety],
+    ['project', S.navProject],
+    ['preferences', S.navPreferences],
+    ['image', S.navImage],
+    ['text', S.navText],
+    ['storage', S.navStorage],
+  ];
   return (
     <div>
-      <PageHeader
-        eyebrow="Bait Khuzam"
-        title="Settings & Backup"
-        description="Project details, units, AI providers, storage and backups. Everything stays on this device."
-      />
-      <nav className="mb-10 flex flex-wrap gap-x-5 gap-y-2 text-[12.5px] text-ink-3">
-        {[
-          ['project', 'Project'],
-          ['preferences', 'Preferences'],
-          ['image', 'Image generation'],
-          ['text', 'AI text assistant'],
-          ['storage', 'Storage'],
-          ['backup', 'Backup & restore'],
-        ].map(([id, label]) => (
+      <PageHeader eyebrow={t.app.name} title={S.title} description={S.lead} />
+      <nav className="scroll-thin -mx-1 mb-8 flex gap-x-5 gap-y-2 overflow-x-auto px-1 pb-1 text-[12.5px] text-ink-3 sm:flex-wrap">
+        {nav.map(([id, label]) => (
           <a
             key={id}
             href={`#${id}`}
@@ -435,98 +704,156 @@ export function SettingsPage() {
               e.preventDefault();
               document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="hover:text-ink"
+            className="touch-target shrink-0 whitespace-nowrap hover:text-ink"
           >
             {label}
           </a>
         ))}
       </nav>
 
-      <Section id="project" title="Project">
+      <Section id="language" title={t.lang.title} icon={Languages}>
+        <LanguageSection />
+      </Section>
+
+      <Section id="cloud" title={S.cloudTitle} icon={Cloud} description={S.cloudLead}>
+        <CloudSection />
+      </Section>
+
+      <Section id="safety" title={S.safetyTitle} icon={ShieldCheck} description={S.safetyLead}>
+        <div className="flex flex-col gap-8">
+          <Card className="max-w-[760px]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 max-w-[480px]">
+                <div className="text-[14px] text-ink">{t.trash.title}</div>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{S.trashLead(trashCount ?? 0)}</p>
+              </div>
+              <ButtonLink to="/deleted" icon={Trash2}>
+                {S.openTrash}
+              </ButtonLink>
+            </div>
+          </Card>
+          <div className="max-w-[760px]">
+            <div className="eyebrow mb-2 flex items-center gap-1.5">
+              <History size={12} /> {S.historyTitle}
+            </div>
+            <p className="mb-3 text-[12.5px] leading-relaxed text-ink-3">{S.historyLead}</p>
+            <HistorySection />
+          </div>
+          <div>
+            <div className="eyebrow mb-3 flex items-center gap-1.5">
+              <HardDrive size={12} /> {S.backupTitle}
+            </div>
+            <BackupSection />
+          </div>
+        </div>
+      </Section>
+
+      <Section id="project" title={S.navProject}>
         <div className="grid max-w-[720px] gap-4 sm:grid-cols-2">
-          <Field label="Project name">
-            <CommitInput value={project.name} onCommit={(v) => v.trim() && updateProject({ name: v.trim() })} />
+          <Field label={S.projectNameAr}>
+            <CommitInput dir="rtl" value={project.nameAr ?? ''} onCommit={(v) => updateProject({ nameAr: v.trim() })} />
           </Field>
-          <Field label="Location">
-            <CommitInput value={project.location} onCommit={(v) => updateProject({ location: v.trim() })} />
+          <Field label={S.projectNameEn} hint={t.common.nameEnHint}>
+            <CommitInput dir="ltr" value={project.name} onCommit={(v) => v.trim() && updateProject({ name: v.trim() })} />
           </Field>
-          <Field label="Description" className="sm:col-span-2">
+          <Field label={S.locationAr}>
+            <CommitInput dir="rtl" value={project.locationAr ?? ''} onCommit={(v) => updateProject({ locationAr: v.trim() })} />
+          </Field>
+          <Field label={S.locationEn}>
+            <CommitInput dir="ltr" value={project.location} onCommit={(v) => updateProject({ location: v.trim() })} />
+          </Field>
+          <Field label={t.common.description} className="sm:col-span-2">
             <CommitInput
+              dir="auto"
               multiline
               minRows={2}
               value={project.description}
               onCommit={(v) => updateProject({ description: v })}
-              placeholder="A sentence about the house and the project"
+              placeholder={S.descriptionPlaceholder}
             />
           </Field>
         </div>
       </Section>
 
-      <Section id="preferences" title="Preferences" description="Defaults for new rooms and measurements. Existing rooms keep their own settings.">
+      <Section id="preferences" title={S.navPreferences} description={S.preferencesLead}>
         <div className="grid max-w-[720px] gap-5">
-          <Field label="Default display unit">
+          <Field label={S.defaultUnit}>
             <Segmented
               value={settings.defaultUnit}
               onChange={(u: LengthUnit) => updateSettings((s) => void (s.defaultUnit = u))}
-              options={(['m', 'cm', 'mm'] as LengthUnit[]).map((u) => ({ value: u, label: UNIT_LABEL[u] }))}
+              options={(['m', 'cm', 'mm'] as LengthUnit[]).map((u) => ({ value: u, label: unitLabel(u) }))}
             />
           </Field>
-          <Field label="New measurements you type are marked" hint="You can change any value's status next to the field.">
+          <Field label={S.defaultCertainty} hint={S.defaultCertaintyHint}>
             <Segmented
               value={settings.defaultCertainty}
               onChange={(v) => updateSettings((s) => void (s.defaultCertainty = v))}
               options={[
-                { value: 'confirmed', label: 'Confirmed' },
-                { value: 'estimated', label: 'Estimated' },
+                { value: 'confirmed', label: t.enums.certainty.confirmed },
+                { value: 'estimated', label: t.enums.certainty.estimated },
               ]}
             />
           </Field>
           <LengthField
-            label="Default walking clearance for new rooms"
+            label={S.defaultClearance}
             unit="cm"
             value={settings.defaultClearanceMm}
             onChange={(v) => v !== null && updateSettings((s) => void (s.defaultClearanceMm = v))}
             className="max-w-[240px]"
           />
-          <Field
-            label="House-wide guidelines (optional)"
-            hint="Never applied automatically. A room uses these only if you switch them on in that room's Direction tab — every room keeps its own independent design by default."
-          >
+          <Field label={S.maxUpload} hint={S.maxUploadHint}>
+            <Segmented
+              value={String(settings.maxUploadMb)}
+              onChange={(v) => updateSettings((s) => void (s.maxUploadMb = Number(v)))}
+              options={[25, 50, 100, 500].map((mb) => ({ value: String(mb), label: fmtBytes(mb * 1024 * 1024) }))}
+            />
+          </Field>
+          <Field label={S.guidelines} hint={S.guidelinesHint}>
             <CommitInput
+              dir="auto"
               multiline
               minRows={3}
               value={settings.houseGuidelines}
               onCommit={(v) => updateSettings((s) => void (s.houseGuidelines = v))}
-              placeholder="e.g. Use the same oak tone for all doors"
+              placeholder={S.guidelinesPlaceholder}
             />
           </Field>
+          <EnglishField source={settings.houseGuidelines} />
         </div>
       </Section>
 
-      <Section
-        id="image"
-        title="Image generation"
-        description="Choose an image API to redesign rooms. Without one, everything else works and prompts can be copied or saved."
-      >
+      <Section id="image" title={S.navImage} description={S.imageLead}>
         <ImageProviderSettings settings={settings} />
       </Section>
 
-      <Section id="text" title="AI text assistant">
+      <Section id="text" title={S.navText} description={S.textLead}>
         <TextProviderSettings settings={settings} />
       </Section>
 
-      <Section
-        id="storage"
-        title="Storage"
-        icon={Database}
-        description="The project lives in this browser's local database (IndexedDB). Images are stored as original files."
-      >
+      <Section id="storage" title={S.navStorage} icon={Database} description={S.storageLead}>
         <StorageInfo />
       </Section>
 
-      <Section id="backup" title="Backup & restore" icon={HardDrive}>
-        <BackupSection />
-      </Section>
+      <p className="mt-6 text-[11.5px] text-ink-4">
+        <Link to="/deleted" className="hover:text-ink">
+          {t.trash.title}
+        </Link>
+      </p>
     </div>
   );
+}
+
+function useTrashCount(): number | undefined {
+  const [count, setCount] = useState<number>();
+  useEffect(() => {
+    let alive = true;
+    const run = () => db.trash.count().then((c) => alive && setCount(c));
+    void run();
+    const t = setInterval(run, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return count;
 }
