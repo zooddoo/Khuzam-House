@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node e2e/acceptance.mjs",
+    "test:e2e": "node e2e/cloud-flows.cjs",
+    "fake-supabase": "node e2e/fake-supabase.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.mjs\" \"*.{ts,json,md}\""
   },
   "dependencies": {

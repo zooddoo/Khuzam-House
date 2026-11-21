@@ -1,149 +1,143 @@
-# Bait Khuzam Studio
+# Bait Khuzam Studio · استوديو بيت خزام
 
-A private, local-first AI interior-design workspace for **Bait Khuzam** (Riyadh, Saudi Arabia). Each room has its own dimensions, architecture, requirements, design
-direction, layout and design versions — and can be redesigned independently with an AI image-generation API you configure yourself.
+A private interior-design workspace for the house in Riyadh. Every room has its own
+requirements, dimensions, architecture, 2D layout, photos and files, design direction
+and design versions. Arabic (default) and English, phone-first, installable.
 
-The studio runs entirely on your computer. Your project lives in your browser's local database; nothing is uploaded anywhere except the images and text you choose to
-send to the image provider when you click **Generate**. It does not use, connect to, or depend on ChatGPT.
+Live site: https://khuzam-house.vercel.app
 
 ---
 
-## Quick start
+## Set it up (one time)
 
-Requirements: **Node.js 20 or newer** and a current Chrome, Edge, Safari or Firefox.
+You need: the Supabase project (already created) and the Vercel project that deploys
+this repository from `main`.
 
-```bash
-npm install
-npm start          # builds and opens the studio at http://localhost:4173
-```
+### 1. Create the database and file storage in Supabase
 
-For development with hot reload: `npm run dev` (http://localhost:5173).
+1. Open https://supabase.com/dashboard → your project.
+2. Left menu **SQL Editor** → **New query**.
+3. Open the file [`supabase/setup.sql`](supabase/setup.sql) in this repository, copy
+   all of it, paste it into the editor and press **Run**.
+   It creates every table, Row Level Security on every table, the history of earlier
+   versions, and the private `studio-files` storage bucket with its policies.
+   It is safe to run again (nothing is deleted).
 
-Use a normal (not private/incognito) browser window — private windows can block or discard local storage. Keep using the same browser and address
-(`localhost:4173` or `localhost:5173`): each address has its own separate local database.
+(The same SQL is in `supabase/migrations/` for the Supabase CLI.)
 
-## What's inside
+### 2. Tell Vercel how to reach Supabase
 
-| Section | What you can do |
+Vercel → the **khuzam-house** project → **Settings** → **Environment Variables**.
+Add these two (for Production, Preview and Development):
+
+| Name | Value |
 | --- | --- |
-| **Home** | Project overview with cover photo, room thumbnails, rooms being designed, recently updated rooms, pending tasks (your own + "needs attention" items derived from missing data), recent concepts, quick actions. |
-| **My Rooms** | Gallery with cover, type, floor, dimensions, area, status, versions and last update. Create, edit, duplicate, change cover, delete (with confirmation and optional image clean-up). |
-| **Room workspace** | Tabs for **Overview**, **Requirements**, **Dimensions**, **Architecture**, **Layout** (2D plan), **Walls**, **Direction**, **Photos & references** and **Versions**, plus a prominent **Redesign This Room** button. |
-| **Floor Plans** | Floors, schematic placement of rooms (drawn from their own dimensions, placeholders when unknown), click a room to open it, optional uploaded architectural plan with two-point scale calibration. Always labelled *Schematic — Not to Scale* unless a calibrated plan is used. |
-| **Design Studio** | Assembles the room's design package — room facts, confirmed architecture, a **DO NOT CHANGE** list, requirements with their images and captions, exclusions, the room's own direction, camera/light/lens/realism settings and your instructions — then generates through your provider and saves every result as a new version. |
-| **Design Library** | All concepts across rooms; the full image/reference gallery (tags, search, links to rooms, requirements, walls and versions); comparison workspace (side-by-side for up to 4 images or slider, synced zoom/pan, full screen, notes, saved comparisons). |
-| **Materials & Furniture** | Optional shared library with images, dimensions, material, colour, brand, product link, price and associated rooms. Furniture can be placed into any room's layout. |
-| **Settings & Backup** | Project details, units, measurement defaults, optional house-wide guidelines (never applied unless a room opts in), image provider, optional text assistant, storage status, ZIP backup/restore and restore points. |
+| `VITE_SUPABASE_URL` | `https://vvybgqmziuidpexikbky.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | your **publishable** key (`sb_publishable_…`) |
 
-Search everything with **⌘K / Ctrl+K**.
+Both are in Supabase → **Project Settings** → **API Keys**. Never use the
+`secret` / `service_role` key — the app refuses to start with one.
 
-### Principles built into the app
+Then **Deployments** → the latest deployment → **⋯** → **Redeploy**
+(the values are built into the site, so a redeploy is required after changing them).
 
-- **Every room is independent.** Directions, presets and palettes are per room. Presets are copied into a room only when you apply them; house-wide guidelines are
-  opt-in per room.
-- **Unknown stays unknown.** Every measurement and architectural element carries a status — *Confirmed*, *Estimated* or *Unknown*. Unknown values are never filled
-  in; the prompt says they are unknown. Only confirmed elements are locked in the DO NOT CHANGE list; estimated ones are described as approximate.
-- **Requirements drive the design.** Images attached to a requirement stay tied to it and are sent with a label such as
-  *"Image 3 — Reference for the requirement 'Reading corner'"* or *"Example of what to AVOID"*.
-- **No fake results.** Without a configured provider the Generate button is disabled; you can still copy the prompt or save a prompt-only version. Failed generations
-  save nothing.
-- **Nothing is moved silently.** The layout checker warns about overlaps, walls, door swings, windows, AC units and clearances, but never moves furniture.
-- **Versions are never overwritten.** Approving a version keeps all earlier ones.
+### 3. Site URL for the confirmation email
 
-## Initial data
+Supabase → **Authentication** → **URL Configuration**:
 
-The repository contained no floor plans, measurements or photographs, so the studio was seeded only with information from the project brief:
+- **Site URL**: `https://khuzam-house.vercel.app`
+- **Redirect URLs** → **Add URL**: `https://khuzam-house.vercel.app/**`
 
-- Project **Bait Khuzam**, **Riyadh, Saudi Arabia**.
-- Rooms: Living & Dining, Kitchen, Majlis, Family Lounge, Master Bedroom, Children's Bedroom, Library, Backyard, Front Facade, Garage.
-  ("Other bedrooms" were mentioned without a count, so none were invented — add them with **Add room**.)
-- **All dimensions are Unknown** and no floor is assigned.
-- Earlier conceptual directions (e.g. *"Warm minimalist, beige neutrals, wood cladding, restrained furniture"* for Living & Dining) are stored as an
-  **"Earlier conceptual idea — not applied"** note in each room's Direction tab. They are never sent to the AI unless you choose *Use as starting point*.
+### 4. Create your account, then close sign-ups
 
-Everything is editable.
+1. Open https://khuzam-house.vercel.app → **First time? Create the owner account**.
+2. Confirm the email Supabase sends you, sign in, and press **Make this account the owner**.
+   From now on only this account can read, create, edit or delete anything
+   (enforced by the database itself, not just the app).
+3. Supabase → **Authentication** → **Sign In / Providers** → under **User Signups**
+   turn **off** “Allow new users to sign up” → **Save**.
 
-## Setting up image generation
+If you used the studio on a device before (data stored in the browser), it is uploaded
+automatically after your first sign-in on that device, with a restore point first and
+a count check at the end.
 
-Open **Settings & Backup → Image generation**, choose a provider, paste your API key and click **Test connection** (it also lists the image models your key can
-use).
+### 5. Install on the phone
 
-| Provider | Uses your photos? | Notes |
-| --- | --- | --- |
-| **OpenAI Images API** (`gpt-image-1` default) | Yes, up to 16 images per request | Recommended for multi-reference redesigns. Some accounts must complete OpenAI organization verification before gpt-image models work. |
-| **Google Gemini API** (`gemini-2.5-flash-image` default) | Yes (≈3 recommended; more on Pro image models) | Images are sent interleaved with their own labels and captions. `imagen-*` models are text-only. |
-| **Stability AI** (`control-structure` default) | One image (the room photo) | *Structure control* keeps the structure of your room photo most closely. Other references are described in text. |
-| **OpenAI-compatible endpoint** | Configurable | For self-hosted or other services that implement the OpenAI Images API. |
+Open the site in Chrome on Android → menu **⋮** → **Add to Home screen** (or the
+“Install” banner). It then opens full-screen like an app.
 
-Model names change over time — type any model ID; capability overrides are available if a model behaves differently from the defaults.
+---
 
-**No image model can guarantee exact architectural preservation.** The studio sends the real photo first, describes confirmed elements precisely and forbids changes
-to them, but always review results against the actual room.
+## Your data is safe
 
-### Local proxy
+- **Cloud + device.** Everything is saved to your Supabase database and storage
+  (files in original quality). Each device keeps a working copy, so the studio opens
+  fast and works offline; changes upload when you are back online.
+- **Save indicator** at the top: *Saved*, *Saving…*, or *Not saved — retry*.
+- **Recently Deleted.** Deleting a room, requirement, attachment, version, etc. only
+  moves it to Recently Deleted (with confirmation). Restore it any time.
+- **Earlier versions.** The database keeps the previous version of every record that is
+  overwritten or deleted. Settings → Data safety → *Earlier versions in the cloud*.
+- **Backups.** Settings → Data safety → *Export backup* downloads one `.zip` with all data
+  and every original file. *Import* checks the file and shows a summary before replacing
+  anything, and creates a restore point first.
 
-When you run `npm start` or `npm run dev`, a small proxy inside the local server forwards provider requests (`/__provider/...`) so they aren't blocked by browser
-cross-origin rules. It runs only on your machine, stores nothing, strips cookies/origin/referer headers, and honours `HTTPS_PROXY` / `NO_PROXY` if your network
-needs them. In Settings you can force *Direct* or *Local proxy* mode; *Automatic* uses the proxy when it is available.
+## Working without an image API
 
-### Optional AI text assistant
+No API key is needed. In the **Design Studio**:
 
-**Settings → AI text assistant** can use Anthropic Claude (official SDK, default `claude-opus-5-5`, structured JSON output), OpenAI, Gemini or an
-OpenAI-compatible endpoint to turn pasted notes into structured requirements. It is optional: **Split into requirements** works offline.
+1. Arabic texts used in the design are listed at the top; give each an English version
+   (or press *Translate all automatically* if an AI text assistant is set up).
+   The prompt is always English; your Arabic originals are kept with every version.
+2. **Copy prompt**, then **Download images** (a ZIP with the numbered images and
+   `prompt.txt`) or **Share** them straight to another app on the phone.
+3. Generate the image in the tool you use (ChatGPT, etc.).
+4. **Import generated image** — it is saved as a new version together with the exact
+   prompt, settings, input images, and snapshots of the requirements and dimensions.
 
-## Privacy and storage
+Image providers (OpenAI, Gemini, Stability, OpenAI-compatible) can still be set up in
+Settings → Image generation; keys stay on the device and are never uploaded.
 
-- Data is stored in IndexedDB in this browser on this device. Original uploads are stored byte-for-byte and never modified; thumbnails and (for HEIC) display copies
-  are stored separately.
-- Images sent to a provider are resized copies with metadata (such as GPS location) removed. The originals are untouched.
-- API keys are stored locally only, are never hard-coded, and are left out of backups unless you explicitly include them.
-- Use **Settings → Storage → Request persistent storage** so the browser doesn't evict the project under disk pressure.
+## Language
 
-## Backups
+Arabic is the default with full right-to-left layout. Switch with the 文A button at the
+top or in Settings → Language & formats (also Western/Arabic-Indic digits and
+Gregorian/Hijri dates). Search ignores hamza/alef forms, ة/ه and diacritics.
 
-**Settings → Backup & restore → Export backup** downloads one `.zip` containing `data.json`, a manifest, and every original image with SHA-256 checksums.
-**Choose backup file** validates a backup, shows what it contains, and replaces the project only after you type `REPLACE`. A **restore point** of the current data is
-created automatically first (the last five are kept), so a restore can be undone. Export backups regularly and keep them somewhere safe — clearing the browser's site
-data deletes the local project.
+---
 
 ## Development
 
-```
-src/
-  app/            App shell, router, global search
-  components/     UI kit, image components (upload, lightbox, zoom), plan renderer & editors
-  features/       Pages: home, rooms, room workspace tabs, floor plans, studio, library, materials, settings
-  lib/
-    db/           Dexie (IndexedDB) schema, factories, repositories, seed, presets
-    geometry/     Units, room shapes (rectangle / L / custom walls), areas, consistency checks
-    layout/       Furniture layout validation
-    ai/           Prompt/package builder, image providers, text structuring, generation pipeline
-    backup/       ZIP export / validated import / restore points
-    images/       Ingest, thumbnails, HEIC conversion, upload preparation
-e2e/acceptance.mjs  End-to-end walkthrough of the acceptance criteria
+```bash
+npm install
+cp .env.example .env.local   # fill in the two values
+npm run dev                  # http://localhost:5173
+npm test                     # unit tests + SQL/RLS tests (PGlite)
+npm run build
 ```
 
-Stack: React 19, TypeScript, Vite, Tailwind CSS v4, Radix UI primitives, Dexie, fflate, Zod, Lucide icons.
+End-to-end flows run against a local fake Supabase (no real project needed):
 
 ```bash
-npm run typecheck    # TypeScript
-npm test             # unit tests (geometry, validation, prompt builder, requirement parser)
-npm run test:e2e     # browser walkthrough; needs `npm run dev` running and `npx playwright install chromium` once
-npm run format       # Prettier
+npm run fake-supabase &       # http://localhost:54321
+VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_test \
+  npx vite build && npx vite preview --port 5173 &
+npm run test:e2e
 ```
 
-The end-to-end test uses a fresh browser profile (your data is untouched) and intercepts the image provider at the network layer, so it needs no API key.
+They cover: owner sign-up, requirement with a photo and a PDF, delete → restore,
+offline editing, a failing server with *Not saved — retry*, Arabic → English prompt,
+importing a generated image, and a second device seeing the same data.
+
+Structure: `src/i18n` (Arabic/English text — `locales/en.ts` is the source of truth,
+`ar.ts` must have the same keys), `src/lib/sync` (cloud sync, auth, storage, history),
+`src/lib/db` (local database, Recently Deleted), `src/lib/ai` (prompt builder, providers,
+translation), `src/features/*` (screens), `supabase/` (database setup).
 
 ## Known limitations
 
-- **Architectural fidelity depends on the model.** Results can still drift (window sizes, ceiling details). Stability's structure control preserves structure best;
-  gpt-image and Gemini usually keep composition but not guaranteed.
-- **Live generation was not run in the build environment** (no API key; outbound network restricted). The generation pipeline was verified end-to-end with an
-  intercepted provider endpoint, and provider authentication/error handling against Google's live API. Your first real run needs your own key.
-- **Single browser, single device.** There is no sync between devices; move a project with a backup file.
-- **Floor plans are schematic.** Rooms are positioned by hand; uploaded plans are calibrated manually and not traced automatically.
-- **Shapes and furniture are simplified.** Custom rooms use straight walls (no curves); furniture footprints are rectangles or ovals (draw an L-shaped sofa as two
-  pieces).
-- **Very large projects.** Backups are assembled in memory; projects of several hundred MB will export and import slowly.
-- **HEIC photos** are converted for display with a bundled decoder; if a file can't be converted, export it as JPEG.
-- **Gemini Flash image models** work best with about three input images; extra images are described in text unless you raise the limit in Settings.
+- Image generation and automatic translation need an API key of your own; without one
+  everything else works and prompts are copied manually.
+- Model-specific technical notes in Settings → Image generation are shown in English.
+- The largest file you can upload is limited by your Supabase plan
+  (Storage → Settings → upload size limit; 50 MB on the free plan).
