@@ -372,6 +372,7 @@ export function CommitInput({
   'aria-label'?: string;
   id?: string;
   disabled?: boolean;
+  dir?: 'auto' | 'ltr' | 'rtl';
 }) {
   const [draft, setDraft] = useState(value);
   const focused = useRef(false);

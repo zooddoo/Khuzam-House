@@ -4,6 +4,11 @@ import { elementSpan, findSegment, type RoomShapeResult, type WallSegment } from
 import { add, offsetPolygon, scale as vscale, type Point } from '@/lib/geometry/polygon';
 import { furniturePolygon } from '@/lib/layout/validate';
 import { formatLength, formatSize } from '@/lib/units';
+import type { Lang } from '@/i18n/prefs';
+import { getPrefs } from '@/i18n/prefs';
+import { msgs } from '@/i18n/messages';
+import { wallTitle } from '@/lib/geometry/names';
+import { furnitureNameLabel } from '@/lib/labels';
 import { niceScaleBar, PLAN_COLORS as C, pathFrom, toScreen, uprightAngle, WALL_T, type PlanView } from './planMath';
 
 export type HandleKind = 'move' | 'rotate' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
@@ -33,6 +38,8 @@ export interface PlanSvgProps {
   onBackgroundPointerDown?: (e: ReactPointerEvent) => void;
   overlay?: ReactNode;
   idPrefix?: string;
+  /** Label language. Images sent to AI models use English. */
+  lang?: Lang;
 }
 
 function Grid({ view, width, height, gridMm }: { view: PlanView; width: number; height: number; gridMm: number }) {
@@ -259,17 +266,6 @@ function elementLabelPoint(el: ArchElement, shape: RoomShapeResult): Point | nul
   return add(mid, vscale(el.type === 'window' ? seg.inward : seg.inward, depth));
 }
 
-const ELEMENT_SHORT: Record<string, string> = {
-  door: '',
-  window: '',
-  ac: 'AC',
-  column: '',
-  beam: 'beam',
-  recess: 'recess',
-  projection: '',
-  electrical: '•',
-  other: '',
-};
 
 export function PlanSvg(props: PlanSvgProps) {
   const {
@@ -296,14 +292,17 @@ export function PlanSvg(props: PlanSvgProps) {
     onWallPointerDown,
     onBackgroundPointerDown,
     overlay,
+    lang = getPrefs().lang,
   } = props;
+  const L = msgs(lang).plan;
+  const fmtOpts = { lang };
   const s = view.scale;
   const verts = shape.vertices;
   const closed = shape.closureGapMm === null || shape.closureGapMm < 20;
   const outer = shape.drawable && closed ? offsetPolygon(verts, WALL_T) : [];
   const wallPath = shape.drawable && closed ? `${pathFrom(outer)} ${pathFrom(verts)}` : '';
   const fontPx = minimal ? 10 : 11.5;
-  const bar = niceScaleBar(s);
+  const bar = niceScaleBar(s, lang);
 
   return (
     <svg
@@ -311,7 +310,13 @@ export function PlanSvg(props: PlanSvgProps) {
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       xmlns="http://www.w3.org/2000/svg"
-      style={{ display: 'block', fontFamily: 'Inter Variable, Inter, system-ui, sans-serif', userSelect: 'none' }}
+      direction="ltr"
+      style={{
+        display: 'block',
+        direction: 'ltr',
+        fontFamily: lang === 'ar' ? 'IBM Plex Sans Arabic, Inter Variable, Inter, system-ui, sans-serif' : 'Inter Variable, Inter, system-ui, sans-serif',
+        userSelect: 'none',
+      }}
       onPointerDown={onBackgroundPointerDown}
     >
       <rect x={0} y={0} width={width} height={height} fill={C.paper} />
@@ -432,7 +437,7 @@ export function PlanSvg(props: PlanSvgProps) {
             const t2 = toScreen(view, add(p, vscale(out, off + 120)));
             return <line x1={t1.x} y1={t1.y} x2={t2.x} y2={t2.y} stroke={C.dim} strokeWidth={1} />;
           };
-          const text = `${sg.length.certainty === 'estimated' ? '≈ ' : ''}${formatLength(sg.length.mm, unit)}`;
+          const text = `${sg.length.certainty === 'estimated' ? '≈ ' : ''}${formatLength(sg.length.mm, unit, fmtOpts)}`;
           return (
             <g key={`dim-${sg.id}`}>
               <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={C.dim} strokeWidth={1} />
@@ -460,8 +465,15 @@ export function PlanSvg(props: PlanSvgProps) {
           if (lenPx < 60) return null;
           return (
             <g key={`lbl-${sg.id}`} transform={`translate(${p.x} ${p.y}) rotate(${uprightAngle(sg.heading)})`}>
-              <text textAnchor="middle" dominantBaseline="central" fontSize={9.5} letterSpacing={1.4} fill={C.label} style={{ textTransform: 'uppercase' }}>
-                {sg.name.toUpperCase()}
+              <text
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={lang === 'ar' ? 11 : 9.5}
+                letterSpacing={lang === 'ar' ? 0 : 1.4}
+                fill={C.label}
+                direction={lang === 'ar' ? 'rtl' : 'ltr'}
+              >
+                {lang === 'ar' ? wallTitle(sg, lang) : wallTitle(sg, lang).toUpperCase()}
               </text>
             </g>
           );
@@ -470,7 +482,7 @@ export function PlanSvg(props: PlanSvgProps) {
       {shape.drawable &&
         showLabels &&
         room.elements.map((el) => {
-          const short = ELEMENT_SHORT[el.type];
+          const short = L.elementShort[el.type] ?? '';
           const lp = elementLabelPoint(el, shape);
           if (!lp || (!short && el.status === 'confirmed')) return null;
           const p = toScreen(view, lp);
@@ -513,11 +525,11 @@ export function PlanSvg(props: PlanSvgProps) {
                 fill={C.furnitureText}
                 fontWeight={500}
               >
-                {it.name.length > Math.floor(along / 7) ? `${it.name.slice(0, Math.max(3, Math.floor(along / 7) - 1))}…` : it.name}
+                {truncateLabel(furnitureNameLabel(it.name, lang), Math.floor(along / 7))}
               </text>
               {showSize && (
                 <text textAnchor="middle" dominantBaseline="central" y={8} fontSize={9.5} fill={C.dim} style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {formatSize(it.width, it.depth, unit === 'm' ? 'cm' : unit)}
+                  {formatSize(it.width, it.depth, unit === 'm' ? 'cm' : unit, lang)}
                   {it.dimsStatus === 'estimated' ? ' ≈' : ''}
                 </text>
               )}
@@ -530,7 +542,7 @@ export function PlanSvg(props: PlanSvgProps) {
           <circle r={15} fill={C.paper} stroke={C.gridMajor} />
           <path d="M 0 -10 L 5 6 L 0 3 L -5 6 Z" fill={C.wall} />
           <text y={-19} textAnchor="middle" fontSize={9.5} fontWeight={600} fill={C.dimText}>
-            N
+            {L.north}
           </text>
         </g>
       )}
@@ -546,4 +558,8 @@ export function PlanSvg(props: PlanSvgProps) {
       {overlay}
     </svg>
   );
+}
+
+function truncateLabel(name: string, max: number): string {
+  return name.length > max ? `${name.slice(0, Math.max(3, max - 1))}…` : name;
 }

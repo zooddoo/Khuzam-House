@@ -60,7 +60,7 @@ export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
   for (const p of pkg.images.filter((x) => x.sent).sort((a, b) => a.index - b.index)) {
     if (signal.aborted) throw new ProviderError(T.cancelled, { code: 'aborted' });
     if (p.role === 'layout-plan') {
-      const blob = await renderPlanPng(room, 1536, 1024);
+      const blob = await renderPlanPng(room, 1536, 1024, 'en');
       images.push({ blob, mime: 'image/png', label: p.label, role: p.role });
       continue;
     }
@@ -220,7 +220,7 @@ export async function collectPromptImages(room: Room, pkg: GenerationPackage): P
     const label = String(p.index).padStart(2, '0');
     const slug = p.role.replace(/[^a-z-]/g, '');
     if (p.role === 'layout-plan') {
-      out.push({ name: `${label}-${slug}.png`, blob: await renderPlanPng(room, 1536, 1024) });
+      out.push({ name: `${label}-${slug}.png`, blob: await renderPlanPng(room, 1536, 1024, 'en') });
       continue;
     }
     if (!p.imageId) continue;

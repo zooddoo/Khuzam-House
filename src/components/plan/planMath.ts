@@ -1,3 +1,6 @@
+import type { Lang } from '@/i18n/prefs';
+import { getPrefs } from '@/i18n/prefs';
+import { formatLength } from '@/lib/units';
 import type { RoomShapeResult } from '@/lib/geometry/room';
 import type { Point } from '@/lib/geometry/polygon';
 
@@ -70,10 +73,10 @@ export function uprightAngle(headingDeg: number): number {
   return a;
 }
 
-export function niceScaleBar(scale: number): { mm: number; px: number; label: string } {
+export function niceScaleBar(scale: number, lang: Lang = getPrefs().lang): { mm: number; px: number; label: string } {
   const targetPx = 110;
   const candidates = [100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000];
   let best = candidates[0];
   for (const c of candidates) if (Math.abs(c * scale - targetPx) < Math.abs(best * scale - targetPx)) best = c;
-  return { mm: best, px: best * scale, label: best >= 1000 ? `${best / 1000} m` : `${best / 10} cm` };
+  return { mm: best, px: best * scale, label: best >= 1000 ? formatLength(best, 'm', { lang }) : formatLength(best, 'cm', { lang }) };
 }

@@ -5,7 +5,11 @@ import type { ArchElement, FurnitureCategory, FurnitureItem, LayoutChecks, Room 
 import { computeRoomShape } from '@/lib/geometry/room';
 import { centroid, degToRad, type Point } from '@/lib/geometry/polygon';
 import { validateLayout } from '@/lib/layout/validate';
-import { FURNITURE_CATEGORIES, FURNITURE_PRESETS, type FurniturePreset } from '@/lib/labels';
+import { FURNITURE_CATEGORIES, FURNITURE_PRESETS, furnitureNameLabel, subtypeLabel, certaintyLabel, type FurniturePreset } from '@/lib/labels';
+import { useI18n } from '@/i18n';
+import { toAsciiDigits } from '@/i18n/arabic';
+import { elementDisplayLabel } from '../images/references';
+import { useCoarsePointer } from '@/lib/hooks/useCoarsePointer';
 import { formatLength, formatSize } from '@/lib/units';
 import { createFurnitureRecord } from '@/lib/db/factories';
 import { updateRoom } from '@/lib/db/rooms';
@@ -27,7 +31,10 @@ import { renderPlanPng, renderPlanSvg } from './exportPlan';
 const COLORS = ['', '#e8dccd', '#d9c8b0', '#c9d3c0', '#cfd8df', '#e7d0c6', '#d6cfe0', '#eee3c4'];
 const MIN_SIZE = 50;
 
-type Drag = { kind: 'pan'; start: Point; view: PlanView } | { kind: 'item'; handle: HandleKind; id: string; start: Point; item: FurnitureItem; moved: boolean };
+type Drag =
+  | { kind: 'pan'; start: Point; view: PlanView }
+  | { kind: 'pinch'; dist: number; mid: Point; view: PlanView }
+  | { kind: 'item'; handle: HandleKind; id: string; start: Point; item: FurnitureItem; moved: boolean };
 
 function rotate(p: Point, deg: number): Point {
   const r = degToRad(deg);
@@ -39,6 +46,10 @@ const snapTo = (v: number, step: number) => Math.round(v / step) * step;
 export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElement?: (el: ArchElement) => void }) {
   const shape = useMemo(() => computeRoomShape(room), [room]);
   const library = useLibrary() ?? [];
+  const { t, lang } = useI18n();
+  const E = t.plan;
+  const coarse = useCoarsePointer();
+  const pointers = useRef(new Map<number, Point>());
   const [items, setItems] = useState<FurnitureItem[]>(room.layout.items);
   const [history, setHistory] = useState<{ past: FurnitureItem[][]; future: FurnitureItem[][] }>({ past: [], future: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -121,7 +132,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
   const removeItem = (id: string) => {
     commit(itemsRef.current.filter((it) => it.id !== id));
     setSelectedId(null);
-    toast('Item removed', { action: { label: 'Undo', onClick: () => undo() } });
+    toast(E.itemRemoved, { action: { label: E.undo, onClick: () => undo() } });
   };
 
   const duplicateItem = (id: string) => {
@@ -157,8 +168,24 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  // Two fingers anywhere on the plan zoom and pan it (a drag in progress is cancelled).
+  const onPointerDownCapture = (e: ReactPointerEvent) => {
+    pointers.current.set(e.pointerId, local(e));
+    if (pointers.current.size === 2 && view) {
+      const d = drag.current;
+      if (d?.kind === 'item') setItems((list) => list.map((x) => (x.id === d.id ? d.item : x)));
+      const [a, b] = Array.from(pointers.current.values());
+      drag.current = { kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, view };
+      (svgWrap.current as Element | null)?.setPointerCapture?.(e.pointerId);
+    }
+  };
+  const forgetPointer = (e: ReactPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+  };
+
   const onItemDown = (e: ReactPointerEvent, item: FurnitureItem, handle: HandleKind) => {
     e.stopPropagation();
+    if (pointers.current.size > 1) return;
     setSelectedId(item.id);
     setSelectedEl(null);
     svgWrap.current?.focus();
@@ -168,7 +195,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
   };
 
   const onBgDown = (e: ReactPointerEvent) => {
-    if (!view) return;
+    if (!view || pointers.current.size > 1) return;
     setSelectedId(null);
     setSelectedEl(null);
     svgWrap.current?.focus();
@@ -177,8 +204,19 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
   };
 
   const onMove = (e: ReactPointerEvent) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, local(e));
     const d = drag.current;
     if (!d || !view) return;
+    if (d.kind === 'pinch') {
+      if (pointers.current.size < 2) return;
+      const [a, b] = Array.from(pointers.current.values());
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const scale = Math.min(2, Math.max(0.01, d.view.scale * (dist / d.dist)));
+      const k = scale / d.view.scale;
+      setView({ scale, tx: mid.x - (d.mid.x - d.view.tx) * k, ty: mid.y - (d.mid.y - d.view.ty) * k });
+      return;
+    }
     if (d.kind === 'pan') {
       const p = local(e);
       setView({ ...d.view, tx: d.view.tx + p.x - d.start.x, ty: d.view.ty + p.y - d.start.y });
@@ -230,14 +268,19 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
     setItems((list) => list.map((x) => (x.id === d.id ? next : x)));
   };
 
-  const onUp = () => {
+  const onUp = (e: ReactPointerEvent) => {
+    forgetPointer(e);
     const d = drag.current;
+    if (d?.kind === 'pinch') {
+      if (pointers.current.size < 2) drag.current = null;
+      return;
+    }
     drag.current = null;
     if (d?.kind === 'item' && d.moved) {
       const prev = itemsRef.current.map((x) => (x.id === d.id ? d.item : x));
       commit(itemsRef.current, prev);
       if (d.handle !== 'move' && d.handle !== 'rotate')
-        toast.message('Size changed by dragging — marked as estimated', { description: 'Enter exact dimensions in the panel to confirm them.' });
+        toast.message(E.resizedEstimated, { description: E.resizedEstimatedHint });
     }
   };
 
@@ -293,14 +336,14 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
 
   const exportPng = async () => {
     try {
-      const blob = await renderPlanPng({ ...room, layout: { ...room.layout, items } });
+      const blob = await renderPlanPng({ ...room, layout: { ...room.layout, items } }, 1600, 1100, lang);
       downloadBlob(blob, `${safeFilename(room.name)}-plan.png`);
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
   const exportSvg = async () => {
-    const svg = await renderPlanSvg({ ...room, layout: { ...room.layout, items } });
+    const svg = await renderPlanSvg({ ...room, layout: { ...room.layout, items } }, 1600, 1100, lang);
     downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${safeFilename(room.name)}-plan.svg`);
   };
 
@@ -322,18 +365,19 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
       roomIds: [room.id],
     });
     patchItem(it.id, { libraryItemId: lib.id });
-    toast.success(`${it.name} saved to Materials & Furniture`);
+    toast.success(E.savedToLibrary(furnitureNameLabel(it.name)));
   };
 
   if (!shape.drawable) {
     return (
-      <EmptyState icon={Ruler} title="The layout editor needs the room's dimensions">
-        Enter the length and width (or the walls of a custom shape) in the Dimensions tab. Furniture is placed to scale, so the room size must be known.
+      <EmptyState icon={Ruler} title={E.needsDims}>
+        {E.needsDimsBody}
       </EmptyState>
     );
   }
 
-  const handles = selected && view && !selected.locked ? handleLayout(view, selected) : null;
+  const handles = selected && view && !selected.locked ? handleLayout(view, selected, coarse ? 40 : 26) : null;
+  const hs = coarse ? 9 : 5;
   const estimatedDims = room.geometry.length.certainty === 'estimated' || room.geometry.width.certainty === 'estimated' || shape.area.certainty === 'estimated';
 
   return (
@@ -342,18 +386,18 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
         <Popover
           trigger={
             <Button variant="primary" size="sm" icon={Plus}>
-              Add furniture
+              {E.addFurniture}
             </Button>
           }
-          className="w-[360px] p-0"
+          className="w-[min(360px,calc(100vw-2rem))] p-0"
         >
-          <div className="max-h-[420px] overflow-y-auto p-2">
-            <div className="eyebrow px-2 pb-1 pt-1">Typical sizes (edit after adding)</div>
+          <div className="max-h-[min(420px,60dvh)] overflow-y-auto p-2">
+            <div className="eyebrow px-2 pb-1 pt-1">{E.typicalSizes}</div>
             <div className="grid grid-cols-2 gap-1">
               {FURNITURE_PRESETS.map((p) => (
                 <PopoverClose asChild key={p.label}>
-                  <button type="button" onClick={() => addPreset(p)} className="rounded-sm px-2 py-1.5 text-left hover:bg-mist">
-                    <div className="text-[12.5px] text-ink">{p.label}</div>
+                  <button type="button" onClick={() => addPreset(p)} className="min-h-11 rounded-sm px-2 py-1.5 text-start hover:bg-mist">
+                    <div className="text-[12.5px] text-ink">{furnitureNameLabel(p.label)}</div>
                     <div className="text-[11px] text-ink-3 tabular">{formatSize(p.width, p.depth, 'cm')}</div>
                   </button>
                 </PopoverClose>
@@ -362,15 +406,15 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
             <PopoverClose asChild>
               <button
                 type="button"
-                onClick={() => addItem({ name: 'Custom item', width: 1000, depth: 600 })}
-                className="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-[12.5px] text-accent hover:bg-mist"
+                onClick={() => addItem({ name: lang === 'ar' ? E.customItem : 'Custom item', width: 1000, depth: 600 })}
+                className="mt-1 min-h-11 w-full rounded-sm px-2 py-1.5 text-start text-[12.5px] text-accent hover:bg-mist"
               >
-                + Custom item
+                + {E.customItem}
               </button>
             </PopoverClose>
             {library.filter((l) => l.kind === 'furniture').length > 0 && (
               <>
-                <div className="eyebrow px-2 pb-1 pt-3">From your library</div>
+                <div className="eyebrow px-2 pb-1 pt-3">{E.fromLibrary}</div>
                 {library
                   .filter((l) => l.kind === 'furniture')
                   .map((l) => (
@@ -379,7 +423,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
                         type="button"
                         onClick={() => {
                           if (l.width === null || l.depth === null)
-                            toast.info(`${l.name} has no footprint size yet — a placeholder size is used and marked estimated.`);
+                            toast.info(E.noFootprint(l.name));
                           addItem({
                             name: l.name,
                             category: (FURNITURE_CATEGORIES.some((c) => c.value === l.category) ? l.category : 'other') as FurnitureCategory,
@@ -390,11 +434,13 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
                             libraryItemId: l.id,
                           });
                         }}
-                        className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-mist"
+                        className="min-h-11 w-full rounded-sm px-2 py-1.5 text-start hover:bg-mist"
                       >
-                        <div className="text-[12.5px]">{l.name}</div>
+                        <div className="text-[12.5px]" dir="auto">
+                          {l.name}
+                        </div>
                         <div className="text-[11px] text-ink-3">
-                          {l.width !== null && l.depth !== null ? formatSize(l.width, l.depth, 'cm') : 'Size unknown'}
+                          {l.width !== null && l.depth !== null ? formatSize(l.width, l.depth, 'cm') : E.sizeUnknown}
                         </div>
                       </button>
                     </PopoverClose>
@@ -403,48 +449,49 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
             )}
           </div>
         </Popover>
-        <span className="mx-1 h-5 w-px bg-line" />
-        <IconButton icon={Undo2} label="Undo (⌘Z)" disabled={!history.past.length} onClick={undo} />
-        <IconButton icon={Redo2} label="Redo (⇧⌘Z)" disabled={!history.future.length} onClick={redo} />
-        <span className="mx-1 h-5 w-px bg-line" />
-        <IconButton icon={Minus} label="Zoom out (−)" onClick={() => setView((v) => v && zoomBy(v, 0.8))} />
-        <IconButton icon={Plus} label="Zoom in (+)" onClick={() => setView((v) => v && zoomBy(v, 1.25))} />
-        <IconButton icon={Maximize2} label="Fit to view (0)" onClick={fit} />
-        <span className="mx-1 h-5 w-px bg-line" />
-        <IconButton icon={Grid3x3} label="Grid" active={showGrid} onClick={() => setShowGrid((v) => !v)} />
-        <IconButton icon={Ruler} label="Dimensions" active={showDims} onClick={() => setShowDims((v) => !v)} />
-        <IconButton icon={Eye} label="Labels" active={showLabels} onClick={() => setShowLabels((v) => !v)} />
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+        <IconButton icon={Undo2} label={E.undoKey} disabled={!history.past.length} onClick={undo} className="flip-rtl" />
+        <IconButton icon={Redo2} label={E.redoKey} disabled={!history.future.length} onClick={redo} className="flip-rtl" />
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+        <IconButton icon={Minus} label={E.zoomOut} onClick={() => setView((v) => v && zoomBy(v, 0.8))} />
+        <IconButton icon={Plus} label={E.zoomIn} onClick={() => setView((v) => v && zoomBy(v, 1.25))} />
+        <IconButton icon={Maximize2} label={E.fit} onClick={fit} />
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+        <IconButton icon={Grid3x3} label={E.grid} active={showGrid} onClick={() => setShowGrid((v) => !v)} />
+        <IconButton icon={Ruler} label={E.dimensions} active={showDims} onClick={() => setShowDims((v) => !v)} />
+        <IconButton icon={Eye} label={E.labels} active={showLabels} onClick={() => setShowLabels((v) => !v)} />
         <IconButton
           icon={Magnet}
-          label={layout.snap ? 'Snapping on (hold Alt to move freely)' : 'Snapping off'}
+          label={layout.snap ? E.snapOn : E.snapOff}
           active={layout.snap}
           onClick={() => updateRoom(room.id, (d) => void (d.layout.snap = !d.layout.snap))}
         />
-        <div className="ml-auto">
+        <div className="ms-auto">
           <Menu
             trigger={
               <Button size="sm" icon={Download}>
-                Export plan
+                {E.export}
               </Button>
             }
             items={[
-              { label: 'PNG image', onSelect: exportPng },
-              { label: 'SVG drawing', onSelect: exportSvg },
+              { label: E.exportPng, onSelect: exportPng },
+              { label: E.exportSvg, onSelect: exportSvg },
             ]}
           />
         </div>
       </div>
 
-      {estimatedDims && <Callout tone="warn">Some room dimensions are estimated, so clearances and fit are approximate.</Callout>}
+      {estimatedDims && <Callout tone="warn">{E.estimatedDims}</Callout>}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div ref={canvasRef} className="relative h-[clamp(420px,calc(100dvh-300px),780px)] overflow-hidden rounded-md border border-line">
+        <div ref={canvasRef} className="relative h-[clamp(340px,calc(100dvh-260px),780px)] overflow-hidden rounded-md border border-line">
           <div
             ref={svgWrap}
             tabIndex={0}
             role="application"
-            aria-label="Room layout editor. Arrow keys move the selected item, R rotates, Delete removes."
+            aria-label={E.editorLabel}
             onKeyDown={onKey}
+            onPointerDownCapture={onPointerDownCapture}
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
@@ -459,6 +506,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
                 view={view}
                 width={size.width}
                 height={size.height}
+                lang={lang}
                 selectedId={selectedId}
                 selectedElementId={selectedEl}
                 warnItemIds={warnIds}
@@ -468,6 +516,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
                 onItemPointerDown={onItemDown}
                 onElementPointerDown={(e, el) => {
                   e.stopPropagation();
+                  if (pointers.current.size > 1) return;
                   setSelectedEl(el.id);
                   setSelectedId(null);
                 }}
@@ -479,26 +528,21 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
                       <circle
                         cx={handles.rot.x}
                         cy={handles.rot.y}
-                        r={6.5}
+                        r={coarse ? 12 : 6.5}
                         fill="#ffffff"
                         stroke="#26221d"
                         strokeWidth={1.5}
                         style={{ cursor: 'grab' }}
                         onPointerDown={(e) => onItemDown(e, selected, 'rotate')}
                       />
+                      {coarse && (
+                        <circle cx={handles.rot.x} cy={handles.rot.y} r={24} fill="transparent" onPointerDown={(e) => onItemDown(e, selected, 'rotate')} />
+                      )}
                       {handles.points.map((h) => (
-                        <rect
-                          key={h.kind}
-                          x={h.p.x - 5}
-                          y={h.p.y - 5}
-                          width={10}
-                          height={10}
-                          fill="#ffffff"
-                          stroke="#26221d"
-                          strokeWidth={1.5}
-                          style={{ cursor: h.cursor }}
-                          onPointerDown={(e) => onItemDown(e, selected, h.kind)}
-                        />
+                        <g key={h.kind} style={{ cursor: h.cursor }} onPointerDown={(e) => onItemDown(e, selected, h.kind)}>
+                          {coarse && <rect x={h.p.x - 22} y={h.p.y - 22} width={44} height={44} fill="transparent" />}
+                          <rect x={h.p.x - hs} y={h.p.y - hs} width={hs * 2} height={hs * 2} fill="#ffffff" stroke="#26221d" strokeWidth={1.5} />
+                        </g>
                       ))}
                     </g>
                   ) : null
@@ -506,8 +550,8 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
               />
             )}
           </div>
-          <div className="pointer-events-none absolute bottom-2 right-3 text-[11px] text-ink-4">
-            Drag to move · handle to rotate · scroll to zoom · drag background to pan
+          <div className="pointer-events-none absolute bottom-2 end-3 max-w-[calc(100%-1.5rem)] text-end text-[11px] text-ink-4">
+            {coarse ? E.hintTouch : E.hintMouse}
           </div>
         </div>
 
@@ -524,18 +568,18 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
             />
           ) : selectedElement ? (
             <div className="rounded-md border border-line bg-surface p-4">
-              <GroupLabel>Architectural element</GroupLabel>
-              <div className="text-[14px]">{selectedElement.label}</div>
-              <div className="mt-1 text-[12px] text-ink-3">
-                {selectedElement.subtype} · {selectedElement.status}
-                {selectedElement.width !== null && ` · ${formatLength(selectedElement.width, unit)} wide`}
+              <GroupLabel>{E.archElement}</GroupLabel>
+              <div className="text-[14px]" dir="auto">
+                {elementDisplayLabel(selectedElement, lang)}
               </div>
-              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-3">
-                Architecture can't be dragged here, so confirmed positions are never changed by accident.
-              </p>
+              <div className="mt-1 text-[12px] text-ink-3">
+                {subtypeLabel(selectedElement.subtype)} · {certaintyLabel(selectedElement.status)}
+                {selectedElement.width !== null && ` · ${E.wide(formatLength(selectedElement.width, unit))}`}
+              </div>
+              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-3">{E.archLocked}</p>
               {onEditElement && (
                 <Button size="sm" className="mt-3" onClick={() => onEditElement(selectedElement)}>
-                  Edit element properties
+                  {E.editElement}
                 </Button>
               )}
             </div>
@@ -549,7 +593,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
   );
 }
 
-function handleLayout(view: PlanView, it: FurnitureItem) {
+function handleLayout(view: PlanView, it: FurnitureItem, rotOffset = 26) {
   const pts: { kind: HandleKind; local: Point; cursor: string }[] = [
     { kind: 'nw', local: { x: -it.width / 2, y: -it.depth / 2 }, cursor: 'nwse-resize' },
     { kind: 'n', local: { x: 0, y: -it.depth / 2 }, cursor: 'ns-resize' },
@@ -568,7 +612,7 @@ function handleLayout(view: PlanView, it: FurnitureItem) {
   const c = toScreen(view, { x: it.x, y: it.y });
   const dir = { x: topMid.x - c.x, y: topMid.y - c.y };
   const len = Math.hypot(dir.x, dir.y) || 1;
-  const rot = { x: topMid.x + (dir.x / len) * 26, y: topMid.y + (dir.y / len) * 26 };
+  const rot = { x: topMid.x + (dir.x / len) * rotOffset, y: topMid.y + (dir.y / len) * rotOffset };
   return { points: pts.map((h) => ({ kind: h.kind, cursor: h.cursor, p: toScreen(view, world(h.local)) })), topMid, rot };
 }
 
@@ -589,6 +633,7 @@ function ItemPanel({
   onSaveToLibrary: () => void;
   warnings: { id: string; message: string; level: string }[];
 }) {
+  const E = useI18n().t.plan;
   const unit = room.displayUnit;
   const shape = computeRoomShape(room);
   const minX = shape.bounds.minX;
@@ -596,25 +641,31 @@ function ItemPanel({
   return (
     <div className="rounded-md border border-line bg-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="eyebrow">Furniture</span>
+        <span className="eyebrow">{E.furniture}</span>
         <div className="flex gap-0.5">
           <IconButton
             icon={item.locked ? Lock : Unlock}
-            label={item.locked ? 'Unlock position' : 'Lock position'}
+            label={item.locked ? E.unlock : E.lock}
             active={item.locked}
             onClick={() => onPatch({ locked: !item.locked })}
           />
-          <IconButton icon={RotateCw} label="Rotate 90° (R)" onClick={() => onPatch({ rotation: (item.rotation + 90) % 360 })} disabled={item.locked} />
-          <IconButton icon={Copy} label="Duplicate (⌘D)" onClick={onDuplicate} />
-          <IconButton icon={Trash2} label="Delete (Del)" variant="danger" onClick={onDelete} />
+          <IconButton icon={RotateCw} label={E.rotate90} onClick={() => onPatch({ rotation: (item.rotation + 90) % 360 })} disabled={item.locked} />
+          <IconButton icon={Copy} label={E.duplicate} onClick={onDuplicate} />
+          <IconButton icon={Trash2} label={E.delete} variant="danger" onClick={onDelete} />
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        <Field label="Name">
-          <CommitInput value={item.name} onCommit={(v) => onPatch({ name: v || 'Item' })} />
+        <Field label={E.name}>
+          <CommitInput
+            dir="auto"
+            value={furnitureNameLabel(item.name)}
+            onCommit={(v) => {
+              if (v.trim() !== furnitureNameLabel(item.name)) onPatch({ name: v.trim() || item.name });
+            }}
+          />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Category">
+          <Field label={E.category}>
             <Select
               value={item.category}
               onChange={(e) => onPatch({ category: e.target.value as FurnitureCategory, layer: e.target.value === 'rug' ? 'floor' : item.layer })}
@@ -626,14 +677,14 @@ function ItemPanel({
               ))}
             </Select>
           </Field>
-          <Field label="Shape">
+          <Field label={E.shape}>
             <Segmented
               size="sm"
               value={item.shape}
               onChange={(v) => onPatch({ shape: v })}
               options={[
-                { value: 'rect', label: 'Rect' },
-                { value: 'round', label: 'Round' },
+                { value: 'rect', label: E.rect },
+                { value: 'round', label: E.round },
               ]}
             />
           </Field>
@@ -641,7 +692,7 @@ function ItemPanel({
         <div className="grid grid-cols-3 gap-2">
           <LengthField
             compact
-            label="Width"
+            label={E.width}
             value={item.width}
             unit={unit === 'm' ? 'cm' : unit}
             required
@@ -649,29 +700,29 @@ function ItemPanel({
           />
           <LengthField
             compact
-            label="Depth"
+            label={E.depth}
             value={item.depth}
             unit={unit === 'm' ? 'cm' : unit}
             required
             onChange={(v) => v && onPatch({ depth: Math.max(MIN_SIZE, v), dimsStatus: 'confirmed' })}
           />
-          <LengthField compact label="Height" value={item.height} unit={unit === 'm' ? 'cm' : unit} onChange={(v) => onPatch({ height: v })} />
+          <LengthField compact label={E.height} value={item.height} unit={unit === 'm' ? 'cm' : unit} onChange={(v) => onPatch({ height: v })} />
         </div>
-        <Field label="Dimensions are">
+        <Field label={E.dimsAre}>
           <Segmented
             size="sm"
             value={item.dimsStatus}
             onChange={(v) => onPatch({ dimsStatus: v })}
             options={[
-              { value: 'confirmed', label: 'Real / measured' },
-              { value: 'estimated', label: 'Approximate' },
+              { value: 'confirmed', label: E.measured },
+              { value: 'estimated', label: E.approximate },
             ]}
           />
         </Field>
         <div className="grid grid-cols-3 gap-2">
           <LengthField
             compact
-            label="From west"
+            label={E.fromWest}
             value={Math.round(item.x - item.width / 2 - minX)}
             unit={unit === 'm' ? 'cm' : unit}
             allowZero
@@ -679,34 +730,35 @@ function ItemPanel({
           />
           <LengthField
             compact
-            label="From north"
+            label={E.fromNorth}
             value={Math.round(item.y - item.depth / 2 - minY)}
             unit={unit === 'm' ? 'cm' : unit}
             allowZero
             onChange={(v) => v !== null && onPatch({ y: v + minY + item.depth / 2 })}
           />
-          <Field label="Rotation">
+          <Field label={E.rotation}>
             <Input
-              type="number"
-              value={Math.round(item.rotation)}
+              inputMode="numeric"
+              dir="ltr"
+              value={String(Math.round(item.rotation))}
               onChange={(e) => {
-                const v = Number(e.target.value);
+                const v = Number(toAsciiDigits(e.target.value));
                 if (Number.isFinite(v)) onPatch({ rotation: ((v % 360) + 360) % 360 });
               }}
               className="!h-8 text-[13px]"
             />
           </Field>
         </div>
-        <p className="-mt-1 text-[11px] text-ink-4">“From west / north” measure the item’s unrotated edge from the room’s west and north sides.</p>
-        <Field label="Color on plan">
+        <p className="-mt-1 text-[11px] text-ink-4">{E.fromHint}</p>
+        <Field label={E.colorOnPlan}>
           <div className="flex flex-wrap gap-1.5">
             {COLORS.map((c) => (
               <button
                 key={c || 'default'}
                 type="button"
-                aria-label={c ? `Color ${c}` : 'Default color'}
+                aria-label={c ? E.colorN(c) : E.colorDefault}
                 onClick={() => onPatch({ color: c })}
-                className={cn('h-6 w-6 rounded-sm border', item.color === c ? 'border-ink ring-1 ring-ink' : 'border-line')}
+                className={cn('h-8 w-8 rounded-sm border sm:h-6 sm:w-6', item.color === c ? 'border-ink ring-1 ring-ink' : 'border-line')}
                 style={{ background: c || '#f2e6da' }}
               />
             ))}
@@ -715,19 +767,19 @@ function ItemPanel({
         <Checkbox
           checked={item.layer === 'floor'}
           onChange={(v) => onPatch({ layer: v ? 'floor' : 'standard' })}
-          label="Floor layer (rug)"
-          description="Can sit under other furniture without overlap warnings."
+          label={E.floorLayer}
+          description={E.floorLayerHint}
         />
-        <Checkbox checked={item.ignoreClearance} onChange={(v) => onPatch({ ignoreClearance: v })} label="Ignore clearance checks" />
-        <Field label="Notes">
-          <CommitInput multiline minRows={1} value={item.notes} onCommit={(v) => onPatch({ notes: v })} />
+        <Checkbox checked={item.ignoreClearance} onChange={(v) => onPatch({ ignoreClearance: v })} label={E.ignoreClearance} />
+        <Field label={E.notes}>
+          <CommitInput multiline minRows={1} value={item.notes} onCommit={(v) => onPatch({ notes: v })} dir="auto" />
         </Field>
         {!item.libraryItemId ? (
           <Button size="sm" variant="ghost" onClick={onSaveToLibrary} className="self-start">
-            Save to Materials & Furniture
+            {E.saveToLibrary}
           </Button>
         ) : (
-          <p className="text-[11.5px] text-ink-3">Linked to an item in Materials & Furniture.</p>
+          <p className="text-[11.5px] text-ink-3">{E.linkedToLibrary}</p>
         )}
         {warnings.length > 0 && (
           <div className="flex flex-col gap-1.5">
@@ -754,14 +806,13 @@ function LayoutSettings({
   onSelect: (id: string) => void;
   setChecks: (p: Partial<LayoutChecks>) => void;
 }) {
+  const E = useI18n().t.plan;
   const c = room.layout.checks;
   return (
     <div className="rounded-md border border-line bg-surface p-4">
-      <GroupLabel>Layout</GroupLabel>
+      <GroupLabel>{E.layout}</GroupLabel>
       {items.length === 0 ? (
-        <p className="mb-4 text-[12.5px] text-ink-3">
-          No furniture yet. Use “Add furniture”, then drag pieces into place. Enter real sizes whenever you know them.
-        </p>
+        <p className="mb-4 text-[12.5px] text-ink-3">{E.noFurniture}</p>
       ) : (
         <ul className="mb-4 flex flex-col">
           {items.map((it) => (
@@ -769,9 +820,11 @@ function LayoutSettings({
               <button
                 type="button"
                 onClick={() => onSelect(it.id)}
-                className="flex w-full items-center justify-between gap-2 rounded-sm px-1.5 py-1.5 text-left hover:bg-mist"
+                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-sm px-1.5 py-1.5 text-start hover:bg-mist"
               >
-                <span className="truncate text-[13px]">{it.name}</span>
+                <span className="truncate text-[13px]" dir="auto">
+                  {furnitureNameLabel(it.name)}
+                </span>
                 <span className="shrink-0 text-[11.5px] text-ink-3 tabular">
                   {formatSize(it.width, it.depth, 'cm')}
                   {it.dimsStatus === 'estimated' ? ' ≈' : ''}
@@ -783,26 +836,26 @@ function LayoutSettings({
       )}
       <div className="flex flex-col gap-3 border-t border-line pt-3">
         <LengthField
-          label="Minimum walking clearance"
+          label={E.minClearance}
           value={room.layout.clearanceMm}
           unit="cm"
           onChange={(v) => v !== null && updateRoom(room.id, (d) => void (d.layout.clearanceMm = v))}
-          hint="Gaps narrower than this are flagged. Gaps under 10 cm count as pieces placed together."
+          hint={E.minClearanceHint}
         />
         <div className="grid grid-cols-2 gap-2">
-          <Toggle size="sm" checked={c.overlap} onChange={(v) => setChecks({ overlap: v })} label={<span className="text-[12px]">Overlaps</span>} />
-          <Toggle size="sm" checked={c.bounds} onChange={(v) => setChecks({ bounds: v })} label={<span className="text-[12px]">Room bounds</span>} />
-          <Toggle size="sm" checked={c.doors} onChange={(v) => setChecks({ doors: v })} label={<span className="text-[12px]">Doors</span>} />
-          <Toggle size="sm" checked={c.windows} onChange={(v) => setChecks({ windows: v })} label={<span className="text-[12px]">Windows</span>} />
-          <Toggle size="sm" checked={c.ac} onChange={(v) => setChecks({ ac: v })} label={<span className="text-[12px]">AC units</span>} />
-          <Toggle size="sm" checked={c.architecture} onChange={(v) => setChecks({ architecture: v })} label={<span className="text-[12px]">Columns</span>} />
-          <Toggle size="sm" checked={c.clearance} onChange={(v) => setChecks({ clearance: v })} label={<span className="text-[12px]">Clearances</span>} />
+          <Toggle size="sm" checked={c.overlap} onChange={(v) => setChecks({ overlap: v })} label={<span className="text-[12px]">{E.checkOverlap}</span>} />
+          <Toggle size="sm" checked={c.bounds} onChange={(v) => setChecks({ bounds: v })} label={<span className="text-[12px]">{E.checkBounds}</span>} />
+          <Toggle size="sm" checked={c.doors} onChange={(v) => setChecks({ doors: v })} label={<span className="text-[12px]">{E.checkDoors}</span>} />
+          <Toggle size="sm" checked={c.windows} onChange={(v) => setChecks({ windows: v })} label={<span className="text-[12px]">{E.checkWindows}</span>} />
+          <Toggle size="sm" checked={c.ac} onChange={(v) => setChecks({ ac: v })} label={<span className="text-[12px]">{E.checkAc}</span>} />
+          <Toggle size="sm" checked={c.architecture} onChange={(v) => setChecks({ architecture: v })} label={<span className="text-[12px]">{E.checkColumns}</span>} />
+          <Toggle size="sm" checked={c.clearance} onChange={(v) => setChecks({ clearance: v })} label={<span className="text-[12px]">{E.checkClearance}</span>} />
         </div>
-        <Field label="Grid size">
+        <Field label={E.gridSize}>
           <Select value={String(room.layout.gridMm)} onChange={(e) => updateRoom(room.id, (d) => void (d.layout.gridMm = Number(e.target.value)))}>
             {[50, 100, 250, 500].map((g) => (
               <option key={g} value={g}>
-                {g / 10} cm
+                {formatLength(g, 'cm')}
               </option>
             ))}
           </Select>
@@ -813,17 +866,18 @@ function LayoutSettings({
 }
 
 function WarningsPanel({ warnings, onSelect }: { warnings: ReturnType<typeof validateLayout>; onSelect: (id: string) => void }) {
+  const E = useI18n().t.plan;
   const problems = warnings.filter((w) => w.level !== 'info');
   const infos = warnings.filter((w) => w.level === 'info');
   return (
     <div className="rounded-md border border-line bg-surface p-4">
       <GroupLabel>
         <span className="inline-flex items-center gap-1.5">
-          <AlertTriangle size={12} /> Checks
+          <AlertTriangle size={12} /> {E.checks}
         </span>
       </GroupLabel>
       {warnings.length === 0 ? (
-        <p className="text-[12.5px] text-ok">No conflicts found.</p>
+        <p className="text-[12.5px] text-ok">{E.noConflicts}</p>
       ) : (
         <ul className="scroll-thin flex max-h-[300px] flex-col gap-2 overflow-y-auto">
           {[...problems, ...infos].map((w) => (
@@ -832,7 +886,7 @@ function WarningsPanel({ warnings, onSelect }: { warnings: ReturnType<typeof val
                 type="button"
                 disabled={!w.itemIds.length}
                 onClick={() => w.itemIds[0] && onSelect(w.itemIds[0])}
-                className={cn('flex w-full gap-2 text-left text-[12px] leading-snug', w.itemIds.length && 'hover:underline')}
+                className={cn('flex min-h-8 w-full gap-2 text-start text-[12px] leading-snug', w.itemIds.length && 'hover:underline')}
               >
                 <span
                   className={cn('mt-1 h-1.5 w-1.5 shrink-0 rounded-full', w.level === 'error' ? 'bg-danger' : w.level === 'warning' ? 'bg-warn' : 'bg-ink-4')}
@@ -843,7 +897,7 @@ function WarningsPanel({ warnings, onSelect }: { warnings: ReturnType<typeof val
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[11px] leading-relaxed text-ink-4">Furniture is never moved automatically — you decide how to resolve each warning.</p>
+      <p className="mt-3 text-[11px] leading-relaxed text-ink-4">{E.neverMoved}</p>
     </div>
   );
 }
