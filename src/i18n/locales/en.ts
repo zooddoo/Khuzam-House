@@ -796,6 +796,7 @@ export const en = {
   },
 
   plan: {
+    previewEmpty: 'Enter the room dimensions to see its plan',
     north: 'N',
     elementShort: { ac: 'AC', beam: 'beam', recess: 'recess', electrical: '•' } as Record<string, string>,
     renderFailed: 'Could not render the plan',
@@ -1106,6 +1107,7 @@ export const en = {
   },
 
   providers: {
+    outputFormat: 'Output format',
     needBaseUrl: 'Enter the endpoint base URL in Settings.',
     needKey: (label: string) => `Enter your ${label} in Settings.`,
     needModel: 'Enter a model name in Settings.',
@@ -1186,6 +1188,22 @@ export const en = {
     provider: 'Provider',
     apiKey: 'API key',
     anthropicNote: 'Uses the official Anthropic SDK with structured JSON output. For current Claude models, server-side refusal fallback is enabled so a declined request is retried on Anthropic’s recommended model.',
+  },
+
+  http: {
+    noProxy: 'The local proxy is not available.',
+    noProxyHint: 'Switch the connection to “Direct” in Settings.',
+    safety: (provider: string) => `${provider}’s safety system rejected this request. Try removing people from photos, rewording instructions, or using fewer images.`,
+    s401: 'The API key was rejected. Check the key in Settings.',
+    s403openai: 'Access denied. OpenAI may require organization verification before gpt-image models can be used, or the key lacks permission.',
+    s403: 'Access denied for this key, model or region.',
+    s404: 'Model or endpoint not found. Check the model name in Settings.',
+    s413: 'The request is too large. Send fewer images, or lower the largest image side in Settings.',
+    s429: 'Rate limit or quota reached. Check your plan and billing with the provider, wait a minute, then retry.',
+    s500: 'The provider had a temporary problem. Please try again shortly.',
+    unreachable: (provider: string, message: string) => `Could not reach ${provider}: ${message}`,
+    unreachableProxy: 'Check your internet connection. The local proxy could not reach the provider.',
+    unreachableDirect: 'Check your internet connection. The provider may not allow requests from a browser (CORS).',
   },
 
   geo: {

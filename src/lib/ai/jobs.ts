@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/messages';
 import { useSyncExternalStore } from 'react';
 import type { ID } from '../types';
 
@@ -25,7 +26,7 @@ export const jobStore = {
     const job: GenerationJob = {
       roomId,
       startedAt: Date.now(),
-      stage: 'Preparing images…',
+      stage: tr().gen.preparing,
       status: 'running',
       error: null,
       versionIds: [],

@@ -1,3 +1,4 @@
+import { tr } from '@/i18n/messages';
 import { useMemo } from 'react';
 import { Ruler } from 'lucide-react';
 import type { ArchElement, Room } from '@/lib/types';
@@ -18,7 +19,7 @@ export function PlanPreview({
   minimal,
   onElementClick,
   onWallClick,
-  emptyLabel = 'Enter the room dimensions to see its plan',
+  emptyLabel,
 }: {
   room: Room;
   className?: string;
@@ -46,7 +47,7 @@ export function PlanPreview({
       {!shape.drawable ? (
         <div className="hairline-grid absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-[12.5px] text-ink-3">
           <Ruler size={18} strokeWidth={1.5} className="text-ink-4" />
-          <span>{emptyLabel}</span>
+          <span>{emptyLabel ?? tr().plan.previewEmpty}</span>
           {shape.missing.length > 0 && !minimal && <span className="text-[11.5px] text-ink-4">Missing: {shape.missing.join(', ')}</span>}
         </div>
       ) : (

@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/messages';
 import type { ConnectionRoute } from '../types';
 
 export type ProxyName = 'openai' | 'gemini' | 'stability' | 'anthropic';
@@ -37,9 +38,7 @@ export async function resolveBase(name: ProxyName, route: ConnectionRoute, direc
   if (route === 'direct') return { base: direct, viaProxy: false };
   const available = await proxyAvailable();
   if (route === 'proxy' && !available) {
-    throw new ProviderError('The local proxy is not available.', {
-      hint: 'Start the studio with "npm run dev" or "npm start", or switch the connection to "Direct" in Settings.',
-    });
+    throw new ProviderError(tr().http.noProxy, { hint: tr().http.noProxyHint });
   }
   if (available) return { base: `${window.location.origin}/__provider/${name}`, viaProxy: true };
   return { base: direct, viaProxy: false };
@@ -47,17 +46,15 @@ export async function resolveBase(name: ProxyName, route: ConnectionRoute, direc
 
 function hintFor(status: number, message: string, provider: string): string | null {
   const m = message.toLowerCase();
+  const H = tr().http;
   if (/safety|moderation|content[_ ]?policy|filtered|blocked|prohibited/.test(m))
-    return `${provider}'s safety system rejected this request. Try removing people from photos, rewording instructions, or using fewer images.`;
-  if (status === 401) return 'The API key was rejected. Check the key in Settings → Image generation.';
-  if (status === 403)
-    return provider === 'OpenAI'
-      ? 'Access denied. OpenAI may require organization verification before gpt-image models can be used, or the key lacks permission.'
-      : 'Access denied for this key, model or region.';
-  if (status === 404) return 'Model or endpoint not found. Check the model name in Settings.';
-  if (status === 413) return 'The request is too large. Send fewer images, or lower "max upload size" in Settings.';
-  if (status === 429) return 'Rate limit or quota reached. Check your plan and billing with the provider, wait a minute, then retry.';
-  if (status >= 500) return 'The provider had a temporary problem. Please try again shortly.';
+    return H.safety(provider);
+  if (status === 401) return H.s401;
+  if (status === 403) return provider === 'OpenAI' ? H.s403openai : H.s403;
+  if (status === 404) return H.s404;
+  if (status === 413) return H.s413;
+  if (status === 429) return H.s429;
+  if (status >= 500) return H.s500;
   return null;
 }
 
@@ -91,13 +88,9 @@ export async function errorFromResponse(res: Response, provider: string): Promis
 /** Wrap fetch failures (network, CORS, abort) in a ProviderError. */
 export function networkError(e: unknown, provider: string, viaProxy: boolean): ProviderError {
   if (e instanceof ProviderError) return e;
-  if (e instanceof DOMException && e.name === 'AbortError') return new ProviderError('Generation cancelled.', { code: 'aborted' });
+  if (e instanceof DOMException && e.name === 'AbortError') return new ProviderError(tr().gen.cancelled, { code: 'aborted' });
   const message = e instanceof Error ? e.message : String(e);
-  return new ProviderError(`Could not reach ${provider}: ${message}`, {
-    hint: viaProxy
-      ? 'Check your internet connection. The local proxy could not reach the provider.'
-      : 'Check your internet connection. If the browser blocked the request (CORS), run the studio with "npm run dev" or "npm start" so requests go through the local proxy.',
-  });
+  return new ProviderError(tr().http.unreachable(provider, message), { hint: viaProxy ? tr().http.unreachableProxy : tr().http.unreachableDirect });
 }
 
 export async function providerFetch(url: string, init: RequestInit, provider: string, viaProxy: boolean): Promise<Response> {

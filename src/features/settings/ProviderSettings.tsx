@@ -245,7 +245,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                       label={T.fidelity}
                       description={T.fidelityHint}
                     />
-                    <Field label="Output format">
+                    <Field label={T.outputFormat}>
                       <Segmented
                         value={s.options.outputFormat}
                         onChange={(v) => set((x) => void (x.options.outputFormat = v))}
@@ -285,7 +285,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                         className="w-full accent-[#26221d]"
                       />
                     </Field>
-                    <Field label="Output format">
+                    <Field label={T.outputFormat}>
                       <Segmented
                         value={s.options.outputFormat}
                         onChange={(v) => set((x) => void (x.options.outputFormat = v))}
