@@ -5,7 +5,7 @@ function palette(id: string, colors: [string, string, string][]): PaletteColor[]
   return colors.map(([hex, name, role], i) => ({ id: `${id}-c${i}`, hex, name, role }));
 }
 
-type Def = { id: string; name: string; summary: string; fields: DesignDirectionFields };
+type Def = { id: string; name: string; nameAr: string; summary: string; summaryAr: string; fields: DesignDirectionFields };
 
 /**
  * Built-in presets. They are copied into the database on first run and are
@@ -17,6 +17,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-warm-minimalist',
     name: 'Warm Minimalist',
     summary: 'Restrained, warm and tactile — quality materials over decoration.',
+    nameAr: 'بساطة دافئة',
+    summaryAr: 'هادئ ودافئ وملموس — جودة المواد أهم من الزخرفة.',
     fields: {
       style: 'Warm minimalist',
       atmosphere: 'Calm, uncluttered and softly lit',
@@ -43,6 +45,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-contemporary-luxury',
     name: 'Contemporary Luxury',
     summary: 'Elegant and refined with rich materials and a hotel-like finish.',
+    nameAr: 'فخامة معاصرة',
+    summaryAr: 'أنيق وراقٍ بمواد غنية ولمسة تشبه الفنادق.',
     fields: {
       style: 'Contemporary luxury',
       atmosphere: 'Elegant, refined, hotel-like',
@@ -69,6 +73,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-japandi',
     name: 'Japandi',
     summary: 'Japanese calm meets Scandinavian warmth.',
+    nameAr: 'جاباندي',
+    summaryAr: 'هدوء ياباني يلتقي بدفء إسكندنافي.',
     fields: {
       style: 'Japandi',
       atmosphere: 'Serene, grounded, natural',
@@ -95,6 +101,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-modern-organic',
     name: 'Modern Organic',
     summary: 'Soft curves, natural textures, earthy tones.',
+    nameAr: 'عصري طبيعي',
+    summaryAr: 'منحنيات ناعمة وملامس طبيعية وألوان ترابية.',
     fields: {
       style: 'Modern organic',
       atmosphere: 'Warm, soft, connected to nature',
@@ -121,6 +129,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-scandinavian',
     name: 'Scandinavian',
     summary: 'Light, airy, functional and cosy.',
+    nameAr: 'إسكندنافي',
+    summaryAr: 'خفيف ومريح وعملي ودافئ.',
     fields: {
       style: 'Scandinavian',
       atmosphere: 'Light, airy and cosy',
@@ -147,6 +157,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-industrial',
     name: 'Industrial',
     summary: 'Raw materials, metal and leather.',
+    nameAr: 'صناعي',
+    summaryAr: 'مواد خام ومعادن وجلد.',
     fields: {
       style: 'Industrial',
       atmosphere: 'Raw, urban, robust',
@@ -173,6 +185,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-classic-contemporary',
     name: 'Classic Contemporary',
     summary: 'Timeless proportions with simplified classic detail.',
+    nameAr: 'كلاسيكي معاصر',
+    summaryAr: 'نسب خالدة مع تفاصيل كلاسيكية مبسّطة.',
     fields: {
       style: 'Classic contemporary',
       atmosphere: 'Timeless, balanced, gracious',
@@ -199,6 +213,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-mid-century',
     name: 'Mid-Century Modern',
     summary: 'Warm woods, graphic forms, optimistic color.',
+    nameAr: 'منتصف القرن الحديث',
+    summaryAr: 'أخشاب دافئة وأشكال جريئة وألوان مبهجة.',
     fields: {
       style: 'Mid-century modern',
       atmosphere: 'Optimistic, warm, graphic',
@@ -225,6 +241,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-modern-arabic',
     name: 'Modern Arabic',
     summary: 'Contemporary living rooted in Arabian craft and hospitality.',
+    nameAr: 'عربي معاصر',
+    summaryAr: 'معيشة معاصرة متجذّرة في الحِرَف والضيافة العربية.',
     fields: {
       style: 'Modern Arabic',
       atmosphere: 'Warm, hospitable, refined and rooted in place',
@@ -251,6 +269,8 @@ export const BUILT_IN_PRESETS: Def[] = [
     id: 'preset-playful-contemporary',
     name: 'Playful Contemporary',
     summary: 'Colorful, joyful and organized — great for children.',
+    nameAr: 'معاصر مرح',
+    summaryAr: 'ملوّن ومبهج ومنظّم — مناسب جدًا للأطفال.',
     fields: {
       style: 'Playful contemporary',
       atmosphere: 'Joyful, colorful and energetic, yet organized',

@@ -82,9 +82,9 @@ function StorageInfo() {
     }
     let imageBytes = 0;
     let images = 0;
-    await db.images.each((img) => {
+    await db.files.each((f) => {
       images++;
-      imageBytes += img.size + (img.thumb?.size ?? 0) + (img.display?.size ?? 0);
+      imageBytes += f.size;
     });
     setInfo({
       usage,
@@ -323,7 +323,7 @@ function BackupSection() {
                   icon={Download}
                   onClick={async () => {
                     const b = await getRestorePointBlob(p.id);
-                    if (b) downloadBlob(b, `bait-khuzam-restore-point-${p.createdAt.slice(0, 10)}.zip`);
+                    if (b) downloadBlob(b.blob, `bait-khuzam-restore-point-${p.createdAt.slice(0, 10)}.${b.ext}`);
                   }}
                 >
                   Download

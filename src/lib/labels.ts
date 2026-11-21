@@ -1,3 +1,5 @@
+import { msgs, tr } from '../i18n/messages';
+import type { Lang } from '../i18n/prefs';
 import type {
   AspectOption,
   CameraAngle,
@@ -21,153 +23,196 @@ import type {
   VersionStatus,
 } from './types';
 
+/**
+ * Option lists for the interface. `label`/`hint` are getters that read the
+ * current interface language, so the lists can be used directly in selects.
+ * Values (and anything sent to an AI model) stay in English.
+ */
+function dict(lang?: Lang) {
+  return lang ? msgs(lang) : tr();
+}
+
 export type Tone = 'neutral' | 'info' | 'accent' | 'ok' | 'warn' | 'danger' | 'muted';
 
-export const ROOM_TYPES: { value: RoomType; label: string; kind: SpaceKind }[] = [
-  { value: 'living-dining', label: 'Living & dining', kind: 'interior' },
-  { value: 'living', label: 'Living room', kind: 'interior' },
-  { value: 'dining', label: 'Dining room', kind: 'interior' },
-  { value: 'kitchen', label: 'Kitchen', kind: 'interior' },
-  { value: 'majlis', label: 'Majlis', kind: 'interior' },
-  { value: 'family-lounge', label: 'Family lounge', kind: 'interior' },
-  { value: 'master-bedroom', label: 'Master bedroom', kind: 'interior' },
-  { value: 'bedroom', label: 'Bedroom', kind: 'interior' },
-  { value: 'children-bedroom', label: "Children's bedroom", kind: 'interior' },
-  { value: 'guest-bedroom', label: 'Guest bedroom', kind: 'interior' },
-  { value: 'library', label: 'Library', kind: 'interior' },
-  { value: 'office', label: 'Office / study', kind: 'interior' },
-  { value: 'bathroom', label: 'Bathroom', kind: 'interior' },
-  { value: 'laundry', label: 'Laundry', kind: 'interior' },
-  { value: 'entrance', label: 'Entrance / foyer', kind: 'interior' },
-  { value: 'corridor', label: 'Corridor', kind: 'interior' },
-  { value: 'stairs', label: 'Staircase', kind: 'interior' },
-  { value: 'garage', label: 'Garage', kind: 'interior' },
-  { value: 'backyard', label: 'Backyard', kind: 'outdoor' },
-  { value: 'roof-terrace', label: 'Roof terrace', kind: 'outdoor' },
-  { value: 'front-facade', label: 'Front facade', kind: 'facade' },
-  { value: 'other', label: 'Other', kind: 'interior' },
-];
+const ROOM_TYPE_KINDS: [RoomType, SpaceKind][] = [['living-dining', 'interior'], ['living', 'interior'], ['dining', 'interior'], ['kitchen', 'interior'], ['majlis', 'interior'], ['family-lounge', 'interior'], ['master-bedroom', 'interior'], ['bedroom', 'interior'], ['children-bedroom', 'interior'], ['guest-bedroom', 'interior'], ['library', 'interior'], ['office', 'interior'], ['bathroom', 'interior'], ['laundry', 'interior'], ['entrance', 'interior'], ['corridor', 'interior'], ['stairs', 'interior'], ['garage', 'interior'], ['backyard', 'outdoor'], ['roof-terrace', 'outdoor'], ['front-facade', 'facade'], ['other', 'interior']];
 
-export function roomTypeLabel(t: RoomType): string {
-  return ROOM_TYPES.find((r) => r.value === t)?.label ?? 'Room';
+export const ROOM_TYPES: { value: RoomType; readonly label: string; kind: SpaceKind }[] = ROOM_TYPE_KINDS.map(([value, kind]) => ({
+  value,
+  kind,
+  get label() {
+    return tr().enums.roomType[value];
+  },
+}));
+
+export function roomTypeLabel(t: RoomType, lang?: Lang): string {
+  return dict(lang).enums.roomType[t] ?? dict(lang).enums.roomType.other;
 }
 
 export function spaceKind(t: RoomType): SpaceKind {
   return ROOM_TYPES.find((r) => r.value === t)?.kind ?? 'interior';
 }
 
-export const ROOM_STATUSES: { value: RoomStatus; label: string; tone: Tone; hint: string }[] = [
-  { value: 'not-started', label: 'Not started', tone: 'muted', hint: 'Nothing recorded yet' },
-  { value: 'requirements-added', label: 'Requirements added', tone: 'info', hint: 'Brief in progress' },
-  { value: 'ready', label: 'Ready to design', tone: 'accent', hint: 'Enough information to generate' },
-  { value: 'designing', label: 'Designing', tone: 'accent', hint: 'Concepts being generated' },
-  { value: 'review', label: 'Review', tone: 'warn', hint: 'Concepts awaiting a decision' },
-  { value: 'approved', label: 'Approved', tone: 'ok', hint: 'A design has been approved' },
-  { value: 'needs-revision', label: 'Needs revision', tone: 'danger', hint: 'Changes requested' },
-];
+const ROOM_STATUS_TONES: [RoomStatus, Tone][] = [['not-started', 'muted'], ['requirements-added', 'info'], ['ready', 'accent'], ['designing', 'accent'], ['review', 'warn'], ['approved', 'ok'], ['needs-revision', 'danger']];
+
+export const ROOM_STATUSES: { value: RoomStatus; readonly label: string; tone: Tone; readonly hint: string }[] = ROOM_STATUS_TONES.map(([value, tone]) => ({
+  value,
+  tone,
+  get label() {
+    return tr().enums.roomStatus[value];
+  },
+  get hint() {
+    return tr().enums.roomStatusHint[value];
+  },
+}));
+
+export function roomStatusLabel(st: RoomStatus, lang?: Lang): string {
+  return dict(lang).enums.roomStatus[st] ?? st;
+}
 
 export function roomStatusMeta(s: RoomStatus) {
   return ROOM_STATUSES.find((x) => x.value === s) ?? ROOM_STATUSES[0];
 }
 
-export const REQUIREMENT_CATEGORIES: { value: RequirementCategory; label: string }[] = [
-  { value: 'furniture', label: 'Furniture' },
-  { value: 'layout', label: 'Layout' },
-  { value: 'storage', label: 'Storage' },
-  { value: 'colors', label: 'Colors' },
-  { value: 'materials', label: 'Materials' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'architectural', label: 'Architectural constraints' },
-  { value: 'functional', label: 'Functional' },
-  { value: 'style', label: 'Style' },
-  { value: 'other', label: 'Other' },
-];
+export const REQUIREMENT_CATEGORIES: { value: RequirementCategory; readonly label: string }[] = (
+  ['furniture', 'layout', 'storage', 'colors', 'materials', 'lighting', 'architectural', 'functional', 'style', 'other'] as RequirementCategory[]
+).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.category[value];
+  },
+}));
 
-export function categoryLabel(c: RequirementCategory): string {
-  return REQUIREMENT_CATEGORIES.find((x) => x.value === c)?.label ?? 'Other';
+export function categoryLabel(c: RequirementCategory, lang?: Lang): string {
+  return dict(lang).enums.category[c] ?? dict(lang).enums.category.other;
 }
 
-export const PRIORITIES: { value: Priority; label: string; tone: Tone; short: string }[] = [
-  { value: 'must', label: 'Must have', tone: 'danger', short: 'Must' },
-  { value: 'preferred', label: 'Preferred', tone: 'accent', short: 'Preferred' },
-  { value: 'optional', label: 'Optional', tone: 'muted', short: 'Optional' },
-];
+const PRIORITY_TONES: [Priority, Tone][] = [['must', 'danger'], ['preferred', 'accent'], ['optional', 'muted']];
+
+export const PRIORITIES: { value: Priority; readonly label: string; tone: Tone; readonly short: string }[] = PRIORITY_TONES.map(([value, tone]) => ({
+  value,
+  tone,
+  get label() {
+    return tr().enums.priority[value];
+  },
+  get short() {
+    return tr().enums.priorityShort[value];
+  },
+}));
+
+export function priorityLabel(p: Priority, lang?: Lang): string {
+  return dict(lang).enums.priority[p] ?? p;
+}
 
 export function priorityMeta(p: Priority) {
   return PRIORITIES.find((x) => x.value === p) ?? PRIORITIES[1];
 }
 
-export const REQUIREMENT_STATUSES: { value: RequirementStatus; label: string; tone: Tone }[] = [
-  { value: 'pending', label: 'Pending', tone: 'muted' },
-  { value: 'included', label: 'Included in design', tone: 'ok' },
-  { value: 'needs-review', label: 'Needs review', tone: 'warn' },
-  { value: 'rejected', label: 'Rejected', tone: 'danger' },
-];
+const REQ_STATUS_TONES: [RequirementStatus, Tone][] = [['pending', 'muted'], ['included', 'ok'], ['needs-review', 'warn'], ['rejected', 'danger']];
+
+export const REQUIREMENT_STATUSES: { value: RequirementStatus; readonly label: string; tone: Tone }[] = REQ_STATUS_TONES.map(([value, tone]) => ({
+  value,
+  tone,
+  get label() {
+    return tr().enums.reqStatus[value];
+  },
+}));
 
 export function requirementStatusMeta(s: RequirementStatus) {
   return REQUIREMENT_STATUSES.find((x) => x.value === s) ?? REQUIREMENT_STATUSES[0];
 }
 
-export const CERTAINTIES: { value: Certainty; label: string; tone: Tone; hint: string }[] = [
-  { value: 'confirmed', label: 'Confirmed', tone: 'ok', hint: 'Measured or verified' },
-  { value: 'estimated', label: 'Estimated', tone: 'warn', hint: 'Approximate — not verified' },
-  { value: 'unknown', label: 'Unknown', tone: 'muted', hint: 'Not known yet' },
-];
+const CERTAINTY_TONES: [Certainty, Tone][] = [['confirmed', 'ok'], ['estimated', 'warn'], ['unknown', 'muted']];
+
+export const CERTAINTIES: { value: Certainty; readonly label: string; tone: Tone; readonly hint: string }[] = CERTAINTY_TONES.map(([value, tone]) => ({
+  value,
+  tone,
+  get label() {
+    return tr().enums.certainty[value];
+  },
+  get hint() {
+    return tr().enums.certaintyHint[value];
+  },
+}));
+
+export function certaintyLabel(c: Certainty, lang?: Lang): string {
+  return dict(lang).enums.certainty[c] ?? c;
+}
 
 export function certaintyMeta(c: Certainty) {
   return CERTAINTIES.find((x) => x.value === c) ?? CERTAINTIES[2];
 }
 
-export const REFERENCE_KINDS: { value: ReferenceKind; label: string }[] = [
-  { value: 'site-photo', label: 'Site photo' },
-  { value: 'plan', label: 'Architectural plan' },
-  { value: 'inspiration', label: 'Inspiration' },
-  { value: 'furniture', label: 'Furniture' },
-  { value: 'material', label: 'Material' },
-  { value: 'generated', label: 'Generated design' },
-  { value: 'screenshot', label: 'Screenshot' },
-  { value: 'other', label: 'Other' },
-];
+export const REFERENCE_KINDS: { value: ReferenceKind; readonly label: string }[] = (
+  ['site-photo', 'plan', 'inspiration', 'furniture', 'material', 'generated', 'screenshot', 'document', 'other'] as ReferenceKind[]
+).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.refKind[value];
+  },
+}));
 
-export function referenceKindLabel(k: ReferenceKind): string {
-  return REFERENCE_KINDS.find((x) => x.value === k)?.label ?? 'Image';
+export function referenceKindLabel(k: ReferenceKind, lang?: Lang): string {
+  return dict(lang).enums.refKind[k] ?? dict(lang).enums.refKind.other;
 }
 
-export const IMAGE_INTENTS: { value: ImageIntent; label: string; hint: string }[] = [
-  { value: 'want', label: 'I want this', hint: 'Example of something to include' },
-  { value: 'avoid', label: 'Avoid this', hint: 'Example of something NOT wanted' },
-  { value: 'neutral', label: 'Context', hint: 'For information only' },
-];
+export const IMAGE_INTENTS: { value: ImageIntent; readonly label: string; readonly hint: string }[] = (['want', 'avoid', 'neutral'] as ImageIntent[]).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.intent[value];
+  },
+  get hint() {
+    return tr().enums.intentHint[value];
+  },
+}));
 
-export const IMAGE_ASPECTS: { value: ImageAspect; label: string }[] = [
-  { value: 'general', label: 'General' },
-  { value: 'furniture', label: 'Furniture' },
-  { value: 'layout', label: 'Layout' },
-  { value: 'style', label: 'Style' },
-  { value: 'material', label: 'Material' },
-  { value: 'color', label: 'Color' },
-  { value: 'detail', label: 'Specific detail' },
-];
+export const IMAGE_ASPECTS: { value: ImageAspect; readonly label: string }[] = (
+  ['general', 'furniture', 'layout', 'style', 'material', 'color', 'detail'] as ImageAspect[]
+).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.imageAspect[value];
+  },
+}));
 
-export const ELEMENT_TYPES: { value: ElementType; label: string; subtypes: string[]; wallMounted: boolean }[] = [
-  { value: 'door', label: 'Door', subtypes: ['Single door', 'Double door', 'Sliding door', 'Pocket door', 'Opening (no door)'], wallMounted: true },
-  { value: 'window', label: 'Window', subtypes: ['Window', 'Floor-to-ceiling window', 'Sliding window', 'High window', 'Fixed glazing'], wallMounted: true },
-  { value: 'ac', label: 'AC unit', subtypes: ['Wall split unit', 'Ducted grille', 'Floor-standing unit', 'Cassette (ceiling)'], wallMounted: true },
-  { value: 'column', label: 'Column', subtypes: ['Column', 'Pilaster'], wallMounted: false },
-  { value: 'beam', label: 'Structural beam', subtypes: ['Beam', 'Bulkhead'], wallMounted: false },
-  { value: 'recess', label: 'Wall recess', subtypes: ['Niche', 'Recess', 'Alcove'], wallMounted: true },
-  { value: 'projection', label: 'Wall projection', subtypes: ['Projection', 'Duct box', 'Chimney breast'], wallMounted: true },
+const ELEMENT_TYPE_DEFS: { value: ElementType; subtypes: string[]; wallMounted: boolean }[] = [
+  { value: 'door', subtypes: ['Single door', 'Double door', 'Sliding door', 'Pocket door', 'Opening (no door)'], wallMounted: true },
+  { value: 'window', subtypes: ['Window', 'Floor-to-ceiling window', 'Sliding window', 'High window', 'Fixed glazing'], wallMounted: true },
+  { value: 'ac', subtypes: ['Wall split unit', 'Ducted grille', 'Floor-standing unit', 'Cassette (ceiling)'], wallMounted: true },
+  { value: 'column', subtypes: ['Column', 'Pilaster'], wallMounted: false },
+  { value: 'beam', subtypes: ['Beam', 'Bulkhead'], wallMounted: false },
+  { value: 'recess', subtypes: ['Niche', 'Recess', 'Alcove'], wallMounted: true },
+  { value: 'projection', subtypes: ['Projection', 'Duct box', 'Chimney breast'], wallMounted: true },
   {
     value: 'electrical',
-    label: 'Electrical point',
     subtypes: ['Socket', 'Switch', 'TV / data point', 'Light point', 'Thermostat', 'Panel'],
     wallMounted: true,
   },
-  { value: 'other', label: 'Other fixed element', subtypes: ['Fixed element'], wallMounted: true },
+  { value: 'other', subtypes: ['Fixed element'], wallMounted: true },
 ];
+
+export const ELEMENT_TYPES: { value: ElementType; readonly label: string; subtypes: string[]; wallMounted: boolean }[] = ELEMENT_TYPE_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.elementType[d.value];
+  },
+}));
 
 export function elementTypeMeta(t: ElementType) {
   return ELEMENT_TYPES.find((x) => x.value === t) ?? ELEMENT_TYPES[ELEMENT_TYPES.length - 1];
+}
+
+export function elementTypeLabel(t: ElementType, lang?: Lang): string {
+  return dict(lang).enums.elementType[t] ?? dict(lang).enums.elementType.other;
+}
+
+/** Subtypes are stored in English; show the translation when one exists. */
+export function subtypeLabel(subtype: string, lang?: Lang): string {
+  return dict(lang).enums.elementSubtype[subtype] ?? subtype;
+}
+
+/** Furniture created from a preset keeps the English preset name; show it translated. */
+export function furnitureNameLabel(name: string, lang?: Lang): string {
+  return dict(lang).enums.furniturePreset[name] ?? name;
 }
 
 export interface FurniturePreset {
@@ -210,78 +255,106 @@ export const FURNITURE_PRESETS: FurniturePreset[] = [
   { label: 'Outdoor lounge set', category: 'outdoor', width: 2400, depth: 1800, height: 750 },
 ];
 
-export const FURNITURE_CATEGORIES: { value: FurnitureCategory; label: string }[] = [
-  { value: 'sofa', label: 'Sofa' },
-  { value: 'armchair', label: 'Armchair' },
-  { value: 'bed', label: 'Bed' },
-  { value: 'table', label: 'Table' },
-  { value: 'dining-table', label: 'Dining table' },
-  { value: 'chair', label: 'Chair' },
-  { value: 'desk', label: 'Desk' },
-  { value: 'cabinet', label: 'Cabinet' },
-  { value: 'storage', label: 'Storage' },
-  { value: 'tv-unit', label: 'TV unit' },
-  { value: 'island', label: 'Island' },
-  { value: 'rug', label: 'Rug' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'plant', label: 'Plant' },
-  { value: 'outdoor', label: 'Outdoor' },
-  { value: 'other', label: 'Other' },
-];
+export const FURNITURE_CATEGORIES: { value: FurnitureCategory; readonly label: string }[] = (
+  ['sofa', 'armchair', 'bed', 'table', 'dining-table', 'chair', 'desk', 'cabinet', 'storage', 'tv-unit', 'island', 'rug', 'lighting', 'plant', 'outdoor', 'other'] as FurnitureCategory[]
+).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.furnitureCategory[value];
+  },
+}));
 
-export const VERSION_STATUSES: { value: VersionStatus; label: string; tone: Tone }[] = [
-  { value: 'draft', label: 'Draft', tone: 'muted' },
-  { value: 'under-review', label: 'Under review', tone: 'warn' },
-  { value: 'approved', label: 'Approved', tone: 'ok' },
-  { value: 'rejected', label: 'Rejected', tone: 'danger' },
-  { value: 'archived', label: 'Archived', tone: 'neutral' },
-];
+const VERSION_STATUS_TONES: [VersionStatus, Tone][] = [['draft', 'muted'], ['under-review', 'warn'], ['approved', 'ok'], ['rejected', 'danger'], ['archived', 'neutral']];
+
+export const VERSION_STATUSES: { value: VersionStatus; readonly label: string; tone: Tone }[] = VERSION_STATUS_TONES.map(([value, tone]) => ({
+  value,
+  tone,
+  get label() {
+    return tr().enums.versionStatus[value];
+  },
+}));
 
 export function versionStatusMeta(s: VersionStatus) {
   return VERSION_STATUSES.find((x) => x.value === s) ?? VERSION_STATUSES[0];
 }
 
-export const CAMERA_ANGLES: { value: CameraAngle; label: string; prompt: string }[] = [
-  { value: 'match-photo', label: 'Match the photo', prompt: 'Keep exactly the same camera position, height, angle and framing as the base photo.' },
-  { value: 'eye-level', label: 'Standing eye level', prompt: 'Standing eye-level view (camera about 1.6 m above the floor).' },
-  { value: 'seated', label: 'Seated eye level', prompt: 'Seated eye-level view (camera about 1.1 m above the floor).' },
-  { value: 'elevated-corner', label: 'Elevated corner', prompt: 'Slightly elevated view from a corner of the room, showing as much of the space as possible.' },
-  { value: 'top-down', label: 'Top-down / axonometric', prompt: 'Top-down cutaway axonometric view of the room showing the furniture layout.' },
-  { value: 'detail', label: 'Detail close-up', prompt: 'Close-up detail view focusing on materials and craftsmanship.' },
+const CAMERA_ANGLES_DEFS: { value: CameraAngle; prompt: string }[] = [
+  { value: 'match-photo', prompt: 'Keep exactly the same camera position, height, angle and framing as the base photo.' },
+  { value: 'eye-level', prompt: 'Standing eye-level view (camera about 1.6 m above the floor).' },
+  { value: 'seated', prompt: 'Seated eye-level view (camera about 1.1 m above the floor).' },
+  { value: 'elevated-corner', prompt: 'Slightly elevated view from a corner of the room, showing as much of the space as possible.' },
+  { value: 'top-down', prompt: 'Top-down cutaway axonometric view of the room showing the furniture layout.' },
+  { value: 'detail', prompt: 'Close-up detail view focusing on materials and craftsmanship.' },
 ];
 
-export const TIMES_OF_DAY: { value: TimeOfDay; label: string; prompt: string }[] = [
-  { value: 'morning', label: 'Morning', prompt: 'soft morning daylight' },
-  { value: 'midday', label: 'Daylight', prompt: 'bright natural daylight' },
-  { value: 'golden-hour', label: 'Golden hour', prompt: 'warm late-afternoon golden-hour sunlight' },
-  { value: 'evening', label: 'Evening', prompt: 'evening ambience with warm artificial lighting switched on' },
-  { value: 'night', label: 'Night', prompt: 'night-time with interior lighting only' },
+export const CAMERA_ANGLES: { value: CameraAngle; readonly label: string; prompt: string }[] = CAMERA_ANGLES_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.cameraAngle[d.value];
+  },
+}));
+
+const TIMES_OF_DAY_DEFS: { value: TimeOfDay; prompt: string }[] = [
+  { value: 'morning', prompt: 'soft morning daylight' },
+  { value: 'midday', prompt: 'bright natural daylight' },
+  { value: 'golden-hour', prompt: 'warm late-afternoon golden-hour sunlight' },
+  { value: 'evening', prompt: 'evening ambience with warm artificial lighting switched on' },
+  { value: 'night', prompt: 'night-time with interior lighting only' },
 ];
 
-export const LENSES: { value: LensType; label: string; prompt: string }[] = [
-  { value: 'standard', label: 'Standard', prompt: 'standard perspective (about 35 mm equivalent), straight vertical lines, no fisheye distortion' },
-  { value: 'wide', label: 'Wide angle', prompt: 'wide-angle perspective (about 20 mm equivalent) with corrected vertical lines and minimal distortion' },
+export const TIMES_OF_DAY: { value: TimeOfDay; readonly label: string; prompt: string }[] = TIMES_OF_DAY_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.timeOfDay[d.value];
+  },
+}));
+
+const LENSES_DEFS: { value: LensType; prompt: string }[] = [
+  { value: 'standard', prompt: 'standard perspective (about 35 mm equivalent), straight vertical lines, no fisheye distortion' },
+  { value: 'wide', prompt: 'wide-angle perspective (about 20 mm equivalent) with corrected vertical lines and minimal distortion' },
 ];
 
-export const REALISM: { value: Realism; label: string; prompt: string }[] = [
-  { value: 'photoreal', label: 'Photorealistic', prompt: 'photorealistic, like professional interior photography' },
-  { value: 'archviz', label: 'Architectural render', prompt: 'high-end architectural visualization render' },
-  { value: 'soft-render', label: 'Soft render', prompt: 'soft, painterly design render' },
-  { value: 'sketch', label: 'Concept sketch', prompt: 'hand-drawn interior concept sketch with light watercolor' },
+export const LENSES: { value: LensType; readonly label: string; prompt: string }[] = LENSES_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.lens[d.value];
+  },
+}));
+
+const REALISM_DEFS: { value: Realism; prompt: string }[] = [
+  { value: 'photoreal', prompt: 'photorealistic, like professional interior photography' },
+  { value: 'archviz', prompt: 'high-end architectural visualization render' },
+  { value: 'soft-render', prompt: 'soft, painterly design render' },
+  { value: 'sketch', prompt: 'hand-drawn interior concept sketch with light watercolor' },
 ];
 
-export const ASPECTS: { value: AspectOption; label: string; ratio: string }[] = [
-  { value: 'landscape', label: 'Landscape 3:2', ratio: '3:2' },
-  { value: 'wide', label: 'Wide 16:9', ratio: '16:9' },
-  { value: 'square', label: 'Square 1:1', ratio: '1:1' },
-  { value: 'portrait', label: 'Portrait 2:3', ratio: '2:3' },
+export const REALISM: { value: Realism; readonly label: string; prompt: string }[] = REALISM_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.realism[d.value];
+  },
+}));
+
+const ASPECTS_DEFS: { value: AspectOption; ratio: string }[] = [
+  { value: 'landscape', ratio: '3:2' },
+  { value: 'wide', ratio: '16:9' },
+  { value: 'square', ratio: '1:1' },
+  { value: 'portrait', ratio: '2:3' },
 ];
 
-export const QUALITIES: { value: QualityOption; label: string }[] = [
-  { value: 'low', label: 'Draft' },
-  { value: 'medium', label: 'Standard' },
-  { value: 'high', label: 'High' },
-];
+export const ASPECTS: { value: AspectOption; readonly label: string; ratio: string }[] = ASPECTS_DEFS.map((d) => ({
+  ...d,
+  get label() {
+    return tr().enums.aspectRatio[d.value];
+  },
+}));
+
+export const QUALITIES: { value: QualityOption; readonly label: string }[] = (['low', 'medium', 'high'] as QualityOption[]).map((value) => ({
+  value,
+  get label() {
+    return tr().enums.quality[value];
+  },
+}));
 
 export const PRIORITIZE_OPTIONS: string[] = [
   'Architectural accuracy',
@@ -295,19 +368,21 @@ export const PRIORITIZE_OPTIONS: string[] = [
 
 export const AVOID_SUGGESTIONS: string[] = ['clutter', 'people', 'text or watermarks', 'distorted proportions', 'extra windows or doors', 'over-styled decor'];
 
-export const IMAGE_ROLE_LABEL: Record<ImageRole, string> = {
-  'base-photo': 'Photo to redesign',
-  'previous-version': 'Previous concept',
-  'site-photo': 'Site photo',
-  'wall-photo': 'Wall photo',
-  'element-photo': 'Element photo',
-  requirement: 'Requirement image',
-  direction: 'Direction reference',
-  inspiration: 'Inspiration',
-  'library-item': 'Library item',
-  plan: 'Architectural plan',
-  'layout-plan': '2D layout plan',
-};
+/** Prioritise options and avoid suggestions are stored in English; show them translated. */
+export function prioritizeLabel(value: string, lang?: Lang): string {
+  return dict(lang).enums.prioritize[value] ?? value;
+}
+
+export function avoidSuggestionLabel(value: string, lang?: Lang): string {
+  return dict(lang).enums.avoidSuggestion[value] ?? value;
+}
+
+/** Role labels in English (used in prompts and image labels sent to providers). */
+export const IMAGE_ROLE_LABEL: Record<ImageRole, string> = msgs('en').enums.imageRole;
+
+export function imageRoleLabel(role: ImageRole, lang?: Lang): string {
+  return dict(lang).enums.imageRole[role] ?? role;
+}
 
 export const TONE_DOT: Record<Tone, string> = {
   neutral: 'bg-ink-3',

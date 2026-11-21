@@ -94,12 +94,26 @@ export function useTasks() {
 }
 
 export function useImageMeta(id: ID | null | undefined) {
+  return useLiveQuery(async () => (id ? ((await db.files.get(id)) ?? null) : null), [id]);
+}
+
+/** File metadata for many ids at once (attachment lists). */
+export function useFilesMap() {
   return useLiveQuery(async () => {
-    if (!id) return null;
-    const img = await db.images.get(id);
-    if (!img) return null;
-    return { id: img.id, name: img.name, type: img.type, size: img.size, width: img.width, height: img.height, createdAt: img.createdAt };
-  }, [id]);
+    const all = await db.files.toArray();
+    return new Map(all.map((f) => [f.id, f]));
+  }, []);
+}
+
+export function useTrash() {
+  return useLiveQuery(() => db.trash.orderBy('deletedAt').reverse().toArray(), []);
+}
+
+export function useTranslations() {
+  return useLiveQuery(async () => {
+    const all = await db.translations.toArray();
+    return new Map(all.map((t) => [t.id, t]));
+  }, []);
 }
 
 export function useRestorePoints() {

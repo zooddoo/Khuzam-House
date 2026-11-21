@@ -5,6 +5,7 @@ import * as RadixMenu from '@radix-ui/react-dropdown-menu';
 import { X, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from './cn';
+import { useT } from '@/i18n';
 
 /* Tooltip ------------------------------------------------------------- */
 
@@ -58,6 +59,7 @@ export interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, title, description, children, footer, size = 'md', modalLock, bodyClassName }: DialogProps) {
+  const t = useT();
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -75,18 +77,18 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
               {description ? (
                 <RadixDialog.Description className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{description}</RadixDialog.Description>
               ) : (
-                <RadixDialog.Description className="sr-only">{typeof title === 'string' ? title : 'Dialog'}</RadixDialog.Description>
+                <RadixDialog.Description className="sr-only">{typeof title === 'string' ? title : t.ui.dialog}</RadixDialog.Description>
               )}
             </div>
             <RadixDialog.Close
-              aria-label="Close"
-              className="-mr-1 inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-3 hover:bg-mist hover:text-ink"
+              aria-label={t.ui.close}
+              className="touch-target -me-1 inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-3 hover:bg-mist hover:text-ink"
             >
               <X size={16} strokeWidth={1.75} />
             </RadixDialog.Close>
           </div>
           <div className={cn('scroll-thin min-h-0 flex-1 overflow-y-auto px-5 py-4', bodyClassName)}>{children}</div>
-          {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+          {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>}
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>
@@ -99,7 +101,7 @@ export function Sheet({
   onOpenChange,
   title,
   children,
-  side = 'right',
+  side = 'end',
   width = 'max-w-[560px]',
   headerExtra,
 }: {
@@ -107,10 +109,13 @@ export function Sheet({
   onOpenChange: (o: boolean) => void;
   title: ReactNode;
   children: ReactNode;
-  side?: 'left' | 'right';
+  /** 'end' = the trailing edge (right in English, left in Arabic). */
+  side?: 'start' | 'end' | 'left' | 'right';
   width?: string;
   headerExtra?: ReactNode;
 }) {
+  const t = useT();
+  const atEnd = side === 'end' || side === 'right';
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
@@ -118,7 +123,7 @@ export function Sheet({
         <RadixDialog.Content
           className={cn(
             'fixed top-0 z-50 flex h-dvh w-full flex-col border-line bg-surface shadow-pop outline-none animate-fade-in',
-            side === 'right' ? 'right-0 border-l' : 'left-0 border-r',
+            atEnd ? 'end-0 border-s' : 'start-0 border-e',
             width,
           )}
         >
@@ -127,14 +132,14 @@ export function Sheet({
             <div className="flex items-center gap-1">
               {headerExtra}
               <RadixDialog.Close
-                aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-3 hover:bg-mist hover:text-ink"
+                aria-label={t.ui.close}
+                className="touch-target inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-3 hover:bg-mist hover:text-ink"
               >
                 <X size={16} strokeWidth={1.75} />
               </RadixDialog.Close>
             </div>
           </div>
-          <RadixDialog.Description className="sr-only">Details</RadixDialog.Description>
+          <RadixDialog.Description className="sr-only">{t.ui.details}</RadixDialog.Description>
           <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">{children}</div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
@@ -220,7 +225,7 @@ export function Menu({ trigger, items, align = 'end' }: { trigger: ReactNode; it
                 disabled={it.disabled}
                 onSelect={it.onSelect}
                 className={cn(
-                  'flex cursor-pointer select-none items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] outline-none data-[disabled]:cursor-not-allowed data-[highlighted]:bg-mist data-[disabled]:opacity-40',
+                  'touch-row flex cursor-pointer select-none items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] outline-none data-[disabled]:cursor-not-allowed data-[highlighted]:bg-mist data-[disabled]:opacity-40',
                   it.danger ? 'text-danger data-[highlighted]:bg-danger-soft' : 'text-ink',
                 )}
               >

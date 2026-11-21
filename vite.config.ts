@@ -90,8 +90,13 @@ function providerProxyGuard(): Plugin {
   };
 }
 
+const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), providerProxyGuard()],
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -1,8 +1,6 @@
 import type { ClipboardEvent as ReactClipboardEvent } from 'react';
-import { newId, nowIso } from '../ids';
-import type { StoredImage } from '../types';
+import { tr } from '../../i18n/messages';
 
-export const MAX_IMAGE_BYTES = 80 * 1024 * 1024;
 const THUMB_EDGE = 720;
 
 const RASTER_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp', 'image/heic', 'image/heif'];
@@ -21,7 +19,7 @@ export function isAcceptedImage(file: { type: string; name?: string }): boolean 
 
 export const ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.heic,.heif';
 
-async function decode(blob: Blob): Promise<ImageBitmap> {
+export async function decodeImage(blob: Blob): Promise<ImageBitmap> {
   return createImageBitmap(blob, { imageOrientation: 'from-image' });
 }
 
@@ -34,7 +32,7 @@ function canvasFor(w: number, h: number): HTMLCanvasElement {
 
 function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new ImageError('Could not encode image'))), type, quality);
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new ImageError(tr().files.encodeFailed))), type, quality);
   });
 }
 
@@ -44,7 +42,7 @@ export async function renderScaled(bitmap: ImageBitmap, maxEdge: number, type: s
   const h = Math.max(1, Math.round(bitmap.height * s));
   const canvas = canvasFor(w, h);
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new ImageError('Canvas is not available in this browser');
+  if (!ctx) throw new ImageError(tr().files.canvasUnavailable);
   if (background) {
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, w, h);
@@ -63,46 +61,30 @@ async function convertHeic(file: Blob): Promise<Blob> {
 }
 
 /**
- * Turn an uploaded file into a StoredImage. The original bytes are kept
- * untouched; a thumbnail (and, for HEIC, a displayable JPEG copy) is added.
+ * Preview variants for an image. The original bytes are never changed; a
+ * thumbnail (and, for HEIC, a displayable JPEG copy) is created alongside.
  */
-export async function ingestImage(file: Blob, name: string): Promise<StoredImage> {
+export async function makeImageVariants(file: Blob, name: string): Promise<{ width: number; height: number; display: Blob | null; thumb: Blob }> {
+  const t = tr().files;
   const meta = { type: file.type, name };
-  if (!isAcceptedImage(meta)) {
-    throw new ImageError(`${name}: unsupported file type${file.type ? ` (${file.type})` : ''}. Use JPEG, PNG, WebP, HEIC, GIF or AVIF.`);
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new ImageError(`${name} is larger than ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB.`);
-  }
   let display: Blob | null = null;
   let bitmap: ImageBitmap;
   try {
-    bitmap = await decode(file);
+    bitmap = await decodeImage(file);
   } catch {
-    if (!isHeic(meta)) throw new ImageError(`${name} could not be read. The file may be damaged or in a format this browser cannot open.`);
+    if (!isHeic(meta)) throw new ImageError(t.unreadableImage(name));
     try {
       display = await convertHeic(file);
-      bitmap = await decode(display);
+      bitmap = await decodeImage(display);
     } catch {
-      throw new ImageError(`${name}: this HEIC photo could not be converted. Export it as JPEG and try again.`);
+      throw new ImageError(t.heicFailed(name));
     }
   }
   const thumb = await renderScaled(bitmap, THUMB_EDGE, 'image/webp', 0.86);
   const width = bitmap.width;
   const height = bitmap.height;
   bitmap.close();
-  return {
-    id: newId('img'),
-    blob: file,
-    display,
-    thumb,
-    name,
-    type: file.type || (isHeic(meta) ? 'image/heic' : 'application/octet-stream'),
-    size: file.size,
-    width,
-    height,
-    createdAt: nowIso(),
-  };
+  return { width, height, display, thumb };
 }
 
 /**
@@ -110,9 +92,8 @@ export async function ingestImage(file: Blob, name: string): Promise<StoredImage
  * `maxEdge`, re-encoded, and stripped of metadata such as GPS location.
  * The stored original is never changed.
  */
-export async function prepareForUpload(img: StoredImage, maxEdge: number, format: 'image/jpeg' | 'image/png' = 'image/jpeg'): Promise<Blob> {
-  const source = img.display ?? img.blob;
-  const bitmap = await decode(source);
+export async function prepareForUpload(source: Blob, maxEdge: number, format: 'image/jpeg' | 'image/png' = 'image/jpeg'): Promise<Blob> {
+  const bitmap = await decodeImage(source);
   try {
     return await renderScaled(bitmap, maxEdge, format, 0.92, format === 'image/jpeg' ? '#ffffff' : undefined);
   } finally {
@@ -154,18 +135,20 @@ export function extensionFor(type: string, fallbackName = ''): string {
   return map[type] ?? fromName ?? 'bin';
 }
 
-/** Read image files from a paste event. */
-export function imagesFromClipboard(e: ClipboardEvent | ReactClipboardEvent): File[] {
+/** Files (of any type) from a paste event. Pasted screenshots get a readable name. */
+export function filesFromClipboard(e: ClipboardEvent | ReactClipboardEvent): File[] {
   const items = Array.from(e.clipboardData?.items ?? []);
   const files: File[] = [];
   for (const it of items) {
-    if (it.kind === 'file') {
-      const f = it.getAsFile();
-      if (f && (f.type.startsWith('image/') || isHeic(f))) {
-        const ext = extensionFor(f.type);
-        files.push(f.name && f.name !== 'image.png' ? f : new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type }));
-      }
-    }
+    if (it.kind !== 'file') continue;
+    const f = it.getAsFile();
+    if (!f) continue;
+    if (f.type.startsWith('image/') && (!f.name || f.name === 'image.png')) {
+      files.push(new File([f], `pasted-${Date.now()}.${extensionFor(f.type)}`, { type: f.type }));
+    } else files.push(f);
   }
   return files;
 }
+
+/** @deprecated use filesFromClipboard */
+export const imagesFromClipboard = (e: ClipboardEvent | ReactClipboardEvent) => filesFromClipboard(e).filter((f) => f.type.startsWith('image/') || isHeic(f));

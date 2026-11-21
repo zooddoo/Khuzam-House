@@ -1,9 +1,10 @@
 import { db } from './db';
 import { createRequirementRecord } from './factories';
 import { advanceRoomStatus } from './rooms';
-import { deleteReferences } from './references';
-import { isOrphanAttachment } from './gc';
-import { newId, nowIso } from '../ids';
+import { moveToTrash } from './trash';
+import { trashOrphanedReferences } from './rooms';
+import { copyName, newId, nowIso } from '../ids';
+import { msgs } from '../../i18n/messages';
 import type { ID, Requirement } from '../types';
 
 async function nextOrder(roomId: ID): Promise<number> {
@@ -42,7 +43,7 @@ export async function duplicateRequirement(id: ID): Promise<Requirement | null> 
     const src = await db.requirements.get(id);
     if (!src) return null;
     const now = nowIso();
-    const copy: Requirement = { ...src, id: newId('req'), title: `${src.title} (copy)`, order: src.order + 0.5, createdAt: now, updatedAt: now };
+    const copy: Requirement = { ...src, id: newId('req'), title: copyName(src.title), order: src.order + 0.5, createdAt: now, updatedAt: now };
     await db.requirements.add(copy);
     await db.references
       .where('requirementIds')
@@ -56,18 +57,17 @@ export async function duplicateRequirement(id: ID): Promise<Requirement | null> 
   });
 }
 
-/** Delete requirements; attachments used nowhere else are removed too. */
+/** Move requirements to Recently Deleted; attachments used nowhere else go with them. */
 export async function deleteRequirements(ids: ID[]): Promise<void> {
-  const set = new Set(ids);
-  const orphanRefs: ID[] = [];
-  await db.transaction('rw', [db.requirements, db.references], async () => {
-    await db.requirements.bulkDelete(ids);
-    const refs = await db.references.where('requirementIds').anyOf(ids).toArray();
-    for (const r of refs) {
-      const next = { ...r, requirementIds: r.requirementIds.filter((x) => !set.has(x)), updatedAt: nowIso() };
-      await db.references.put(next);
-      if (isOrphanAttachment(next)) orphanRefs.push(r.id);
-    }
+  if (!ids.length) return;
+  const first = await db.requirements.get(ids[0]);
+  if (!first) return;
+  const label =
+    ids.length === 1
+      ? { en: first.title || msgs('en').enums.trashKind.requirement, ar: first.title || msgs('ar').enums.trashKind.requirement }
+      : { en: msgs('en').common.requirementCount(ids.length), ar: msgs('ar').common.requirementCount(ids.length) };
+  await moveToTrash('requirement', label, first.roomId, async (rec) => {
+    for (const id of ids) await rec.remove('requirements', id);
+    await trashOrphanedReferences(rec, { requirements: new Set(ids) });
   });
-  if (orphanRefs.length) await deleteReferences(orphanRefs);
 }

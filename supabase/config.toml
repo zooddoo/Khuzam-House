@@ -1,0 +1,21 @@
+# Supabase CLI / GitHub integration settings for Bait Khuzam Studio.
+# Database changes live in supabase/migrations and are applied in order.
+# The same SQL is in supabase/setup.sql for running by hand in the SQL Editor.
+project_id = "khuzam-house"
+
+[db]
+major_version = 17
+
+[auth]
+site_url = "https://khuzam-house.vercel.app"
+additional_redirect_urls = ["https://khuzam-house.vercel.app/**", "http://localhost:5173/**", "http://localhost:4173/**"]
+# The studio has a single owner. After creating your account, turn sign-ups
+# off in the dashboard: Authentication → Sign In / Providers → "Allow new users to sign up".
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[storage]
+file_size_limit = "50MiB"

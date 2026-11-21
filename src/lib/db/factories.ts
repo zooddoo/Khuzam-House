@@ -18,7 +18,7 @@ import type {
   RoomType,
 } from '../types';
 import { UNKNOWN } from '../units';
-import { elementTypeMeta } from '../labels';
+import { elementTypeLabel, elementTypeMeta } from '../labels';
 
 export function emptyDirectionFields(): DesignDirectionFields {
   return {
@@ -114,7 +114,7 @@ export function createElementRecord(type: ElementType, partial: Partial<ArchElem
     id: newId('el'),
     type,
     subtype: meta.subtypes[0] ?? '',
-    label: meta.label,
+    label: elementTypeLabel(type, 'en'),
     placement: meta.wallMounted ? 'wall' : 'free',
     wallId: null,
     offset: null,
@@ -198,6 +198,7 @@ export function createReferenceRecord(imageId: ID, partial: Partial<Reference> =
     elementIds: [],
     directionRoomIds: [],
     libraryItemIds: [],
+    referenceIds: [],
     createdAt: now,
     updatedAt: now,
     ...partial,
@@ -264,6 +265,7 @@ export function defaultSettings(): AppSettings {
       route: 'auto',
     },
     lastBackupAt: null,
+    maxUploadMb: 50,
   };
 }
 

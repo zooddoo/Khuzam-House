@@ -9,3 +9,6 @@ e2e/output
 test-results
 .DS_Store
 *.log
+.env
+.env.*
+!.env.example

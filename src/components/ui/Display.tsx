@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AlertTriangle, CircleAlert, Info, Loader2, type LucideIcon } from 'lucide-react';
 import { cn } from './cn';
 import { TONE_DOT, TONE_SOFT, type Tone } from '@/lib/labels';
+import { useT } from '@/i18n';
 
 export function Dot({ tone, className }: { tone: Tone; className?: string }) {
   return <span aria-hidden className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', TONE_DOT[tone], className)} />;
@@ -29,13 +30,15 @@ export function Badge({ tone = 'neutral', children, className, title }: { tone?:
 }
 
 export function Spinner({ size = 16, className }: { size?: number; className?: string }) {
-  return <Loader2 size={size} className={cn('animate-spin text-ink-3', className)} aria-label="Loading" />;
+  const t = useT();
+  return <Loader2 size={size} className={cn('animate-spin text-ink-3', className)} aria-label={t.ui.loading} />;
 }
 
-export function LoadingBlock({ label = 'Loading…' }: { label?: string }) {
+export function LoadingBlock({ label }: { label?: string }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2 px-1 py-10 text-[13px] text-ink-3">
-      <Spinner size={15} /> {label}
+      <Spinner size={15} /> {label ?? t.common.loading}
     </div>
   );
 }
@@ -89,10 +92,10 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn('mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4', className)}>
+    <header className={cn('mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 sm:mb-8', className)}>
       <div className="min-w-0">
         {eyebrow && <div className="eyebrow mb-2">{eyebrow}</div>}
-        <h1 className="display text-[40px] text-ink sm:text-[46px]">{title}</h1>
+        <h1 className="display text-[32px] text-ink sm:text-[46px]">{title}</h1>
         {description && <p className="mt-2 max-w-[640px] text-[13.5px] leading-relaxed text-ink-3">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { cn } from './cn';
+import { useT } from '@/i18n';
 
 export const inputClass =
   'w-full rounded-sm border border-line bg-raised px-3 text-[13.5px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 hover:border-line-strong focus:border-ink-3 focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-mist/60 disabled:text-ink-3';
@@ -66,7 +67,12 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   ref,
 ) {
   return (
-    <input ref={ref} dir="auto" className={cn(inputClass, 'h-9', invalid && 'border-danger focus:border-danger focus:ring-danger/15', className)} {...rest} />
+    <input
+      ref={ref}
+      dir="auto"
+      className={cn(inputClass, 'h-11 text-[15px] sm:h-9 sm:text-[13.5px]', invalid && 'border-danger focus:border-danger focus:ring-danger/15', className)}
+      {...rest}
+    />
   );
 });
 
@@ -100,7 +106,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
         onChange?.(e);
         resize();
       }}
-      className={cn(inputClass, 'scroll-thin resize-none py-2 leading-relaxed', className)}
+      className={cn(inputClass, 'scroll-thin resize-none py-2 text-[15px] leading-relaxed sm:text-[13.5px]', className)}
       {...rest}
     />
   );
@@ -109,10 +115,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...rest }, ref) {
   return (
     <div className="relative">
-      <select ref={ref} className={cn(inputClass, 'h-9 appearance-none pr-8', className)} {...rest}>
+      <select ref={ref} className={cn(inputClass, 'h-11 appearance-none pe-8 text-[15px] sm:h-9 sm:text-[13.5px]', className)} {...rest}>
         {children}
       </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
+      <ChevronDown size={14} className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
     </div>
   );
 });
@@ -146,9 +152,13 @@ export function Toggle({
       >
         <span
           className={cn(
-            'absolute left-0 top-0.5 rounded-full bg-white shadow-sm transition-transform',
+            'absolute start-0 top-0.5 rounded-full bg-white shadow-sm transition-transform',
             size === 'sm' ? 'h-3 w-3' : 'h-4 w-4',
-            checked ? (size === 'sm' ? 'translate-x-3.5' : 'translate-x-4.5') : 'translate-x-0.5',
+            checked
+              ? size === 'sm'
+                ? 'translate-x-3.5 rtl:-translate-x-3.5'
+                : 'translate-x-4.5 rtl:-translate-x-4.5'
+              : 'translate-x-0.5 rtl:-translate-x-0.5',
           )}
         />
       </button>
@@ -193,7 +203,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'shrink-0 whitespace-nowrap rounded-[2px] font-medium transition-colors',
-            size === 'sm' ? 'h-6 px-2 text-[11.5px]' : 'h-7 px-2.5 text-[12.5px]',
+            size === 'sm' ? 'h-8 px-2 text-[12px] sm:h-6 sm:text-[11.5px]' : 'h-9 px-2.5 text-[13px] sm:h-7 sm:text-[12.5px]',
             value === o.value ? 'bg-raised text-ink shadow-[0_1px_2px_rgb(38_34_29/0.12)]' : 'text-ink-3 hover:text-ink',
           )}
         >
@@ -266,7 +276,7 @@ export function Chip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12px] transition-colors',
+        'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12.5px] transition-colors sm:h-7 sm:text-[12px]',
         active ? 'border-ink bg-ink text-canvas' : 'border-line bg-raised text-ink-2 hover:border-line-strong hover:text-ink',
         className,
       )}
@@ -280,7 +290,7 @@ export function Chip({
 export function TagInput({
   value,
   onChange,
-  placeholder = 'Add tag…',
+  placeholder,
   suggestions = [],
 }: {
   value: string[];
@@ -288,6 +298,7 @@ export function TagInput({
   placeholder?: string;
   suggestions?: string[];
 }) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const add = (t: string) => {
     const clean = t.trim().replace(/,$/, '');
@@ -306,10 +317,10 @@ export function TagInput({
   const listId = useId();
   return (
     <div className={cn(inputClass, 'flex min-h-9 flex-wrap items-center gap-1.5 py-1.5')}>
-      {value.map((t) => (
-        <span key={t} className="inline-flex items-center gap-1 rounded-full bg-mist px-2 py-0.5 text-[12px] text-ink-2">
-          {t}
-          <button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(value.filter((x) => x !== t))} className="text-ink-3 hover:text-ink">
+      {value.map((tag) => (
+        <span key={tag} dir="auto" className="inline-flex items-center gap-1 rounded-full bg-mist px-2 py-0.5 text-[12px] text-ink-2">
+          {tag}
+          <button type="button" aria-label={t.ui.remove(tag)} onClick={() => onChange(value.filter((x) => x !== tag))} className="p-0.5 text-ink-3 hover:text-ink">
             <X size={11} />
           </button>
         </span>
@@ -324,7 +335,7 @@ export function TagInput({
           add(draft);
           setDraft('');
         }}
-        placeholder={value.length ? '' : placeholder}
+        placeholder={value.length ? '' : (placeholder ?? t.forms.addTag)}
         className="min-w-[80px] flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-4"
       />
       {suggestions.length > 0 && (

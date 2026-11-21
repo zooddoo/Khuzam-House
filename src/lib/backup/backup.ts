@@ -4,7 +4,10 @@ import { db } from '../db/db';
 import { createRoomRecord, defaultChecks, emptyDirection, withSettingsDefaults } from '../db/factories';
 import { syncWalls } from '../geometry/room';
 import { newId, nowIso } from '../ids';
-import { extensionFor } from '../images/ingest';
+import { blobKey, fetchBlob } from '../files/repo';
+import { extOf, fileKindOf } from '../files/kind';
+import { syncEngine } from '../sync/engine';
+import { tr } from '../../i18n/messages';
 import type {
   AppSettings,
   BackupSummary,
@@ -12,6 +15,8 @@ import type {
   DesignTask,
   DesignVersion,
   DirectionPreset,
+  FileBlob,
+  FileVariant,
   Floor,
   LibraryItem,
   Project,
@@ -19,17 +24,27 @@ import type {
   Requirement,
   RestorePoint,
   Room,
-  StoredImage,
+  StoredFile,
+  Translation,
+  TrashEntry,
 } from '../types';
 
+/**
+ * Backups.
+ *
+ * Export: one ZIP with data.json (every record), manifest.json, and every
+ * file — originals byte-for-byte plus previews — with SHA-256 checksums.
+ * Files not yet on this device are downloaded from the cloud first.
+ *
+ * Import: validated, previewed, and applied only after confirmation. A
+ * restore point is saved first. Files are never deleted by a restore.
+ */
+
 export const BACKUP_APP = 'bait-khuzam-studio';
-export const BACKUP_FORMAT = 1;
+export const BACKUP_FORMAT = 2;
 const MAX_RESTORE_POINTS = 5;
 
-type ImageMeta = Omit<StoredImage, 'blob' | 'display' | 'thumb'> & {
-  files: { original: string; display?: string; thumb?: string };
-  sha256?: string;
-};
+type FileEntry = StoredFile & { files: { original: string; display?: string; thumb?: string } };
 
 export interface BackupData {
   project: Project | null;
@@ -42,8 +57,10 @@ export interface BackupData {
   presets: DirectionPreset[];
   comparisons: Comparison[];
   tasks: DesignTask[];
+  translations: Translation[];
+  trash: TrashEntry[];
   settings: Partial<AppSettings> | null;
-  images: ImageMeta[];
+  files: FileEntry[];
 }
 
 export interface BackupManifest {
@@ -54,6 +71,8 @@ export interface BackupManifest {
   includesApiKeys: boolean;
   checksums: 'sha-256' | 'none';
   summary: BackupSummary;
+  /** Files whose bytes could not be included (e.g. offline and not on this device). */
+  missingFiles?: string[];
 }
 
 async function sha256(bytes: Uint8Array): Promise<string | undefined> {
@@ -80,28 +99,56 @@ export function backupFilename(date = new Date()): string {
   return `bait-khuzam-backup-${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}.zip`;
 }
 
-/**
- * Export the whole project to a ZIP: data.json, manifest.json and every
- * stored image (original bytes, unmodified) with SHA-256 checksums.
- */
-export async function exportBackup(
-  opts: { includeKeys?: boolean; onProgress?: (done: number, total: number) => void } = {},
-): Promise<{ blob: Blob; summary: BackupSummary; filename: string }> {
-  const [project, floors, rooms, requirements, references, versions, library, presets, comparisons, tasks, settingsRaw] = await Promise.all([
-    db.project.get('project'),
-    db.floors.toArray(),
-    db.rooms.toArray(),
-    db.requirements.toArray(),
-    db.references.toArray(),
-    db.versions.toArray(),
-    db.library.toArray(),
-    db.presets.toArray(),
-    db.comparisons.toArray(),
-    db.tasks.toArray(),
-    db.settings.get('app'),
-  ]);
+async function collectData(includeKeys: boolean): Promise<Omit<BackupData, 'files'> & { fileRecords: StoredFile[] }> {
+  const [project, floors, rooms, requirements, references, versions, library, presets, comparisons, tasks, translations, trash, settingsRaw, fileRecords] =
+    await Promise.all([
+      db.project.get('project'),
+      db.floors.toArray(),
+      db.rooms.toArray(),
+      db.requirements.toArray(),
+      db.references.toArray(),
+      db.versions.toArray(),
+      db.library.toArray(),
+      db.presets.toArray(),
+      db.comparisons.toArray(),
+      db.tasks.toArray(),
+      db.translations.toArray(),
+      db.trash.toArray(),
+      db.settings.get('app'),
+      db.files.toArray(),
+    ]);
   const settings = withSettingsDefaults(settingsRaw);
-  const imageIds = (await db.images.toCollection().primaryKeys()) as string[];
+  return {
+    project: project ?? null,
+    floors,
+    rooms,
+    requirements,
+    references,
+    versions,
+    library,
+    presets,
+    comparisons,
+    tasks,
+    translations,
+    trash,
+    settings: includeKeys ? settings : stripKeys(settings),
+    fileRecords,
+  };
+}
+
+export type ExportProgress = (stage: 'files' | 'packing', done: number, total: number) => void;
+
+/**
+ * Export everything to a ZIP. Missing file bytes are downloaded from the
+ * cloud; anything that cannot be fetched is listed in the manifest.
+ */
+export async function exportBackup(opts: { includeKeys?: boolean; onProgress?: ExportProgress } = {}): Promise<{
+  blob: Blob;
+  summary: BackupSummary;
+  filename: string;
+  missingFiles: string[];
+}> {
+  const { fileRecords, ...rest } = await collectData(!!opts.includeKeys);
 
   const chunks: Uint8Array[] = [];
   let resolveDone!: () => void;
@@ -129,43 +176,32 @@ export async function exportBackup(
     f.push(strToU8(text), true);
   };
 
+  const missingFiles: string[] = [];
   let summary: BackupSummary;
   try {
-    const imagesMeta: ImageMeta[] = [];
+    const files: FileEntry[] = [];
     let i = 0;
-    for (const id of imageIds) {
-      const img = await db.images.get(id);
-      opts.onProgress?.(++i, imageIds.length);
-      if (!img) continue;
-      const original = new Uint8Array(await img.blob.arrayBuffer());
-      const files: ImageMeta['files'] = { original: `images/${id}/original.${extensionFor(img.type, img.name)}` };
-      addStored(files.original, original);
-      if (img.display) {
-        files.display = `images/${id}/display.jpg`;
-        addStored(files.display, new Uint8Array(await img.display.arrayBuffer()));
+    for (const file of fileRecords) {
+      opts.onProgress?.('files', ++i, fileRecords.length);
+      const original = await fetchBlob(file, 'original').catch(() => null);
+      if (!original) {
+        missingFiles.push(file.name || file.id);
+        continue;
       }
-      if (img.thumb) {
-        const ext = extensionFor(img.thumb.type);
-        files.thumb = `images/${id}/thumb.${ext === 'bin' ? 'webp' : ext}`;
-        addStored(files.thumb, new Uint8Array(await img.thumb.arrayBuffer()));
+      const bytes = new Uint8Array(await original.arrayBuffer());
+      const paths: FileEntry['files'] = { original: `files/${file.id}/original${file.ext ? `.${file.ext}` : ''}` };
+      addStored(paths.original, bytes);
+      for (const variant of ['display', 'thumb'] as FileVariant[]) {
+        const has = variant === 'display' ? file.hasDisplay : file.hasThumb;
+        if (!has) continue;
+        const b = await fetchBlob(file, variant).catch(() => null);
+        if (!b) continue;
+        paths[variant] = `files/${file.id}/${variant}`;
+        addStored(paths[variant]!, new Uint8Array(await b.arrayBuffer()));
       }
-      const { blob: _b, display: _d, thumb: _t, ...meta } = img;
-      imagesMeta.push({ ...meta, files, sha256: await sha256(original) });
+      files.push({ ...file, sha256: file.sha256 ?? (await sha256(bytes)) ?? null, files: paths });
     }
-    const data: BackupData = {
-      project: project ?? null,
-      floors,
-      rooms,
-      requirements,
-      references,
-      versions,
-      library,
-      presets,
-      comparisons,
-      tasks,
-      settings: opts.includeKeys ? settings : stripKeys(settings),
-      images: imagesMeta,
-    };
+    const data: BackupData = { ...rest, files };
     summary = summarize(data);
     const manifest: BackupManifest = {
       app: BACKUP_APP,
@@ -173,14 +209,23 @@ export async function exportBackup(
       schemaVersion: db.verno,
       createdAt: nowIso(),
       includesApiKeys: !!opts.includeKeys,
-      checksums: imagesMeta.some((m) => m.sha256) ? 'sha-256' : 'none',
+      checksums: files.some((m) => m.sha256) ? 'sha-256' : 'none',
       summary,
+      missingFiles,
     };
+    opts.onProgress?.('packing', 0, 1);
     addDeflated('data.json', JSON.stringify(data));
     addDeflated('manifest.json', JSON.stringify(manifest, null, 2));
     addDeflated(
       'README.txt',
-      'Bait Khuzam Studio backup.\nRestore it from Settings & Backup → Import backup.\n\ndata.json holds all project data; images/ holds every uploaded and generated image (original files, unmodified).\n',
+      [
+        'Bait Khuzam Studio backup / نسخة احتياطية من استوديو بيت خزام',
+        '',
+        'Restore it from Settings & Backup → Choose backup file.',
+        'data.json holds all studio data; files/ holds every photo and attachment (original files, unmodified).',
+        '',
+        'للاستعادة: الإعدادات والنسخ الاحتياطي ← اختيار ملف النسخة الاحتياطية.',
+      ].join('\n'),
     );
     zip.end();
   } catch (e) {
@@ -189,17 +234,17 @@ export async function exportBackup(
   }
   await finished;
   const blob = new Blob(chunks as BlobPart[], { type: 'application/zip' });
-  return { blob, summary, filename: backupFilename() };
+  return { blob, summary, filename: backupFilename(), missingFiles };
 }
 
-export function summarize(data: Pick<BackupData, 'project' | 'rooms' | 'requirements' | 'references' | 'images' | 'versions' | 'library'>): BackupSummary {
+export function summarize(data: Pick<BackupData, 'project' | 'rooms' | 'requirements' | 'references' | 'files' | 'versions' | 'library'>): BackupSummary {
   return {
     createdAt: nowIso(),
     projectName: data.project?.name ?? 'Project',
     rooms: data.rooms.length,
     requirements: data.requirements.length,
     references: data.references.length,
-    images: data.images.length,
+    images: data.files.length,
     versions: data.versions.length,
     libraryItems: data.library.length,
   };
@@ -210,6 +255,7 @@ export function summarize(data: Pick<BackupData, 'project' | 'rooms' | 'requirem
 /* ------------------------------------------------------------------ */
 
 const withId = z.object({ id: z.string().min(1) }).passthrough();
+const fileEntrySchema = z.object({ id: z.string(), name: z.string(), type: z.string(), files: z.object({ original: z.string() }).passthrough() }).passthrough();
 const dataSchema = z.object({
   project: z
     .object({ id: z.literal('project'), name: z.string() })
@@ -224,8 +270,12 @@ const dataSchema = z.object({
   presets: z.array(withId),
   comparisons: z.array(withId),
   tasks: z.array(withId),
+  translations: z.array(withId).optional(),
+  trash: z.array(withId).optional(),
   settings: z.object({}).passthrough().nullable(),
-  images: z.array(z.object({ id: z.string(), name: z.string(), type: z.string(), files: z.object({ original: z.string() }).passthrough() }).passthrough()),
+  // Format 2: files of any type. Format 1: images.
+  files: z.array(fileEntrySchema).optional(),
+  images: z.array(fileEntrySchema).optional(),
 });
 
 const manifestSchema = z.object({
@@ -239,59 +289,88 @@ const manifestSchema = z.object({
 export interface ParsedBackup {
   manifest: BackupManifest;
   data: BackupData;
-  files: Record<string, Uint8Array>;
+  zipFiles: Record<string, Uint8Array>;
   issues: string[];
-  /** Image ids whose original file is missing or damaged. */
-  brokenImages: string[];
+  /** File ids whose original is missing or damaged. */
+  brokenFiles: string[];
 }
 
 export class BackupError extends Error {}
 
+/** Older backups stored images only; turn them into files of the current format. */
+function upgradeFileEntry(raw: Record<string, unknown> & { id: string; name: string; type: string; files: FileEntry['files'] }): FileEntry {
+  const name = raw.name || raw.id;
+  return {
+    id: raw.id,
+    name,
+    type: raw.type || '',
+    size: Number(raw.size ?? 0),
+    kind: (raw.kind as StoredFile['kind']) ?? fileKindOf(raw.type || '', name),
+    ext: (raw.ext as string) ?? extOf(name),
+    width: Number(raw.width ?? 0),
+    height: Number(raw.height ?? 0),
+    hasDisplay: (raw.hasDisplay as boolean) ?? !!raw.files.display,
+    hasThumb: (raw.hasThumb as boolean) ?? !!raw.files.thumb,
+    sha256: (raw.sha256 as string) ?? null,
+    createdAt: (raw.createdAt as string) ?? nowIso(),
+    files: raw.files,
+  };
+}
+
 export async function readBackup(file: Blob): Promise<ParsedBackup> {
-  let files: Record<string, Uint8Array>;
+  const t = tr().backup;
+  let zipFiles: Record<string, Uint8Array>;
   try {
-    files = unzipSync(new Uint8Array(await file.arrayBuffer()));
+    zipFiles = unzipSync(new Uint8Array(await file.arrayBuffer()));
   } catch {
-    throw new BackupError('This file is not a valid ZIP backup.');
+    throw new BackupError(t.notZip);
   }
-  if (!files['manifest.json'] || !files['data.json']) throw new BackupError('This ZIP is not a Bait Khuzam Studio backup (manifest or data missing).');
+  if (!zipFiles['manifest.json'] || !zipFiles['data.json']) throw new BackupError(t.notStudioBackup);
   let manifest: BackupManifest;
-  let data: BackupData;
   try {
-    const m = manifestSchema.parse(JSON.parse(strFromU8(files['manifest.json'])));
-    if (m.app !== BACKUP_APP) throw new BackupError('This backup was made by a different application.');
-    if (m.formatVersion > BACKUP_FORMAT) throw new BackupError('This backup was made by a newer version of the studio. Update the app first.');
+    const m = manifestSchema.parse(JSON.parse(strFromU8(zipFiles['manifest.json'])));
+    if (m.app !== BACKUP_APP) throw new BackupError(t.otherApp);
+    if (m.formatVersion > BACKUP_FORMAT) throw new BackupError(t.newerVersion);
     manifest = m as unknown as BackupManifest;
   } catch (e) {
     if (e instanceof BackupError) throw e;
-    throw new BackupError('The backup manifest is damaged.');
+    throw new BackupError(t.manifestDamaged);
   }
+  let data: BackupData;
   try {
-    const parsed = dataSchema.safeParse(JSON.parse(strFromU8(files['data.json'])));
-    if (!parsed.success) throw new BackupError(`The backup data is incomplete or damaged (${parsed.error.issues[0]?.path.join('.') || 'structure'}).`);
-    data = parsed.data as unknown as BackupData;
+    const parsed = dataSchema.safeParse(JSON.parse(strFromU8(zipFiles['data.json'])));
+    if (!parsed.success) throw new BackupError(t.dataDamaged(parsed.error.issues[0]?.path.join('.') || 'structure'));
+    const raw = parsed.data as unknown as Record<string, unknown> & { files?: unknown[]; images?: unknown[] };
+    const fileList = (raw.files ?? raw.images ?? []) as Parameters<typeof upgradeFileEntry>[0][];
+    data = {
+      ...(raw as unknown as BackupData),
+      translations: (raw.translations as Translation[]) ?? [],
+      trash: (raw.trash as TrashEntry[]) ?? [],
+      files: fileList.map(upgradeFileEntry),
+    };
   } catch (e) {
     if (e instanceof BackupError) throw e;
-    throw new BackupError('The backup data could not be read.');
+    throw new BackupError(t.dataUnreadable);
   }
   const issues: string[] = [];
-  const brokenImages: string[] = [];
-  for (const img of data.images) {
-    const bytes = files[img.files.original];
+  const brokenFiles: string[] = [];
+  for (const f of data.files) {
+    const bytes = zipFiles[f.files.original];
     if (!bytes) {
-      brokenImages.push(img.id);
+      brokenFiles.push(f.id);
       continue;
     }
-    if (img.sha256) {
+    if (f.sha256) {
       const h = await sha256(bytes);
-      if (h && h !== img.sha256) brokenImages.push(img.id);
+      if (h && h !== f.sha256) brokenFiles.push(f.id);
     }
   }
-  if (brokenImages.length) issues.push(`${brokenImages.length} image(s) are missing or failed their checksum and will be skipped.`);
-  const imageIds = new Set(data.images.map((i) => i.id));
-  const danglingRefs = data.references.filter((r) => !imageIds.has(r.imageId)).length;
-  if (danglingRefs) issues.push(`${danglingRefs} reference(s) point to images not in the backup.`);
-  return { manifest, data, files, issues, brokenImages };
+  if (brokenFiles.length) issues.push(t.brokenFiles(brokenFiles.length));
+  if (manifest.missingFiles?.length) issues.push(t.missingAtExport(manifest.missingFiles.length));
+  const fileIds = new Set(data.files.map((i) => i.id));
+  const dangling = data.references.filter((r) => !fileIds.has(r.imageId)).length;
+  if (dangling) issues.push(t.danglingRefs(dangling));
+  return { manifest, data, zipFiles, issues, brokenFiles };
 }
 
 /** Fill fields added in later versions so older backups stay usable. */
@@ -315,90 +394,100 @@ function normalizeRoom(r: Room): Room {
   return merged;
 }
 
+function normalizeReference(r: Reference): Reference {
+  return { ...r, referenceIds: r.referenceIds ?? [] };
+}
+
+/** Tables replaced by a restore. Files are added, never removed. */
+const REPLACED = ['project', 'floors', 'rooms', 'requirements', 'references', 'versions', 'library', 'presets', 'comparisons', 'tasks', 'translations', 'trash'] as const;
+
 /**
- * Replace the current project with a parsed backup. API keys on this device
+ * Replace the studio's data with a parsed backup (or restore point). A
+ * restore point of the current data is saved first. API keys on this device
  * are kept unless the backup includes keys and `useBackupKeys` is set.
  */
 export async function restoreBackup(parsed: ParsedBackup, opts: { createRestorePoint: boolean; useBackupKeys?: boolean; reason?: string }): Promise<void> {
-  if (opts.createRestorePoint) await createRestorePoint(opts.reason ?? 'Before restoring a backup');
-  const { data, files } = parsed;
-  const broken = new Set(parsed.brokenImages);
-  const images: StoredImage[] = data.images
-    .filter((m) => !broken.has(m.id))
-    .map((m) => {
-      const { files: f, sha256: _s, ...meta } = m;
-      const original = files[f.original];
-      const display = f.display ? files[f.display] : undefined;
-      const thumb = f.thumb ? files[f.thumb] : undefined;
-      return {
-        ...meta,
-        blob: new Blob([original as BlobPart], { type: m.type }),
-        display: display ? new Blob([display as BlobPart], { type: 'image/jpeg' }) : null,
-        thumb: thumb ? new Blob([thumb as BlobPart], { type: f.thumb?.endsWith('.jpg') ? 'image/jpeg' : 'image/webp' }) : null,
-      };
-    });
+  if (opts.createRestorePoint) await createRestorePoint(opts.reason ?? tr().backup.reasonBeforeRestore);
+  const { data, zipFiles } = parsed;
+  const broken = new Set(parsed.brokenFiles);
+  const now = nowIso();
+  const files: StoredFile[] = [];
+  const blobs: FileBlob[] = [];
+  // Files the cloud already has (known on this device) are cached, not uploaded again.
+  const known = new Set((await db.files.toCollection().primaryKeys()) as string[]);
+  for (const entry of data.files) {
+    const { files: paths, ...meta } = entry;
+    const original = zipFiles[paths.original];
+    if (broken.has(entry.id) && !original) {
+      // Keep the record (the cloud may still have the bytes).
+      files.push(meta);
+      continue;
+    }
+    files.push(meta);
+    const pending: 0 | 1 = known.has(entry.id) ? 0 : 1;
+    if (original) blobs.push({ key: blobKey(entry.id, 'original'), fileId: entry.id, variant: 'original', blob: new Blob([original as BlobPart], { type: meta.type }), pending, cachedAt: now });
+    const display = paths.display ? zipFiles[paths.display] : undefined;
+    if (display) blobs.push({ key: blobKey(entry.id, 'display'), fileId: entry.id, variant: 'display', blob: new Blob([display as BlobPart], { type: 'image/jpeg' }), pending, cachedAt: now });
+    const thumb = paths.thumb ? zipFiles[paths.thumb] : undefined;
+    if (thumb) blobs.push({ key: blobKey(entry.id, 'thumb'), fileId: entry.id, variant: 'thumb', blob: new Blob([thumb as BlobPart], { type: 'image/webp' }), pending, cachedAt: now });
+  }
 
   const current = withSettingsDefaults(await db.settings.get('app'));
   const incoming = withSettingsDefaults((data.settings ?? undefined) as Partial<AppSettings> | undefined);
   const settings: AppSettings = {
     ...incoming,
-    imageProvider: {
-      ...incoming.imageProvider,
-      keys: opts.useBackupKeys && parsed.manifest.includesApiKeys ? incoming.imageProvider.keys : current.imageProvider.keys,
-    },
-    textProvider: {
-      ...incoming.textProvider,
-      keys: opts.useBackupKeys && parsed.manifest.includesApiKeys ? incoming.textProvider.keys : current.textProvider.keys,
-    },
+    imageProvider: { ...incoming.imageProvider, keys: opts.useBackupKeys && parsed.manifest.includesApiKeys ? incoming.imageProvider.keys : current.imageProvider.keys },
+    textProvider: { ...incoming.textProvider, keys: opts.useBackupKeys && parsed.manifest.includesApiKeys ? incoming.textProvider.keys : current.textProvider.keys },
   };
 
-  await db.transaction(
-    'rw',
-    [db.project, db.floors, db.rooms, db.requirements, db.references, db.images, db.versions, db.library, db.presets, db.comparisons, db.tasks, db.settings],
-    async () => {
-      await Promise.all([
-        db.project.clear(),
-        db.floors.clear(),
-        db.rooms.clear(),
-        db.requirements.clear(),
-        db.references.clear(),
-        db.images.clear(),
-        db.versions.clear(),
-        db.library.clear(),
-        db.presets.clear(),
-        db.comparisons.clear(),
-        db.tasks.clear(),
-      ]);
-      const now = nowIso();
-      await db.project.put(
-        data.project ?? {
-          id: 'project',
-          name: 'Bait Khuzam',
-          location: 'Riyadh, Saudi Arabia',
-          description: '',
-          coverReferenceId: null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      );
-      await db.floors.bulkAdd(data.floors);
-      await db.rooms.bulkAdd(data.rooms.map(normalizeRoom));
-      await db.requirements.bulkAdd(data.requirements);
-      await db.references.bulkAdd(data.references);
-      await db.images.bulkAdd(images);
-      await db.versions.bulkAdd(data.versions);
-      await db.library.bulkAdd(data.library);
-      await db.presets.bulkAdd(data.presets);
-      await db.comparisons.bulkAdd(data.comparisons);
-      await db.tasks.bulkAdd(data.tasks);
-      await db.settings.put(settings);
-    },
-  );
+  syncEngine.setForceArchive(true);
+  const tables = [...REPLACED.map((t) => db.table(t)), db.files, db.blobs, db.settings];
+  await db.transaction('rw', tables, async () => {
+    for (const t of REPLACED) {
+      const keys = (await db.table(t).toCollection().primaryKeys()) as string[];
+      if (keys.length) await db.table(t).bulkDelete(keys);
+    }
+    await db.project.put(
+      data.project ?? {
+        id: 'project',
+        name: 'Bait Khuzam',
+        nameAr: 'بيت خزام',
+        location: 'Riyadh, Saudi Arabia',
+        locationAr: 'الرياض، المملكة العربية السعودية',
+        description: '',
+        coverReferenceId: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
+    await db.floors.bulkPut(data.floors);
+    await db.rooms.bulkPut(data.rooms.map(normalizeRoom));
+    await db.requirements.bulkPut(data.requirements);
+    await db.references.bulkPut(data.references.map(normalizeReference));
+    await db.versions.bulkPut(data.versions);
+    await db.library.bulkPut(data.library);
+    await db.presets.bulkPut(data.presets);
+    await db.comparisons.bulkPut(data.comparisons);
+    await db.tasks.bulkPut(data.tasks);
+    await db.translations.bulkPut(data.translations ?? []);
+    await db.trash.bulkPut(data.trash ?? []);
+    await db.files.bulkPut(files);
+    await db.blobs.bulkPut(blobs);
+    await db.settings.put(settings);
+  });
 }
 
+/* ------------------------------------------------------------------ */
+/* Restore points (on this device; data only — files stay in storage)   */
+/* ------------------------------------------------------------------ */
+
 export async function createRestorePoint(reason: string): Promise<RestorePoint> {
-  const { blob, summary } = await exportBackup({ includeKeys: false });
-  const point: RestorePoint = { id: newId('rp'), createdAt: nowIso(), reason, size: blob.size, blob, summary };
+  const { fileRecords, ...rest } = await collectData(false);
+  const data: BackupData = { ...rest, files: fileRecords.map((f) => ({ ...f, files: { original: '' } })) };
+  const summary = summarize(data);
+  const json = JSON.stringify({ manifest: { app: BACKUP_APP, formatVersion: BACKUP_FORMAT, createdAt: nowIso(), includesApiKeys: false, summary }, data });
+  const blob = new Blob([json], { type: 'application/json' });
+  const point: RestorePoint = { id: newId('rp'), createdAt: nowIso(), reason, size: blob.size, format: 'data', blob, summary };
   await db.restorePoints.add(point);
   const all = await db.restorePoints.orderBy('createdAt').toArray();
   const excess = all.length - MAX_RESTORE_POINTS;
@@ -406,15 +495,23 @@ export async function createRestorePoint(reason: string): Promise<RestorePoint> 
   return point;
 }
 
-export async function restoreFromPoint(id: string): Promise<void> {
-  const point = await db.restorePoints.get(id);
-  if (!point) throw new BackupError('Restore point not found.');
-  const parsed = await readBackup(point.blob);
-  await restoreBackup(parsed, { createRestorePoint: true, reason: 'Before returning to an earlier restore point' });
+async function parseRestorePoint(point: RestorePoint): Promise<ParsedBackup> {
+  if (point.format !== 'data') return readBackup(point.blob);
+  const parsed = JSON.parse(await point.blob.text()) as { manifest: BackupManifest; data: BackupData };
+  return { manifest: parsed.manifest, data: { ...parsed.data, translations: parsed.data.translations ?? [], trash: parsed.data.trash ?? [] }, zipFiles: {}, issues: [], brokenFiles: [] };
 }
 
-export async function getRestorePointBlob(id: string): Promise<Blob | null> {
-  return (await db.restorePoints.get(id))?.blob ?? null;
+export async function restoreFromPoint(id: string): Promise<void> {
+  const point = await db.restorePoints.get(id);
+  if (!point) throw new BackupError(tr().backup.pointNotFound);
+  const parsed = await parseRestorePoint(point);
+  await restoreBackup(parsed, { createRestorePoint: true, reason: tr().backup.reasonBeforePoint });
+}
+
+export async function getRestorePointBlob(id: string): Promise<{ blob: Blob; ext: string } | null> {
+  const p = await db.restorePoints.get(id);
+  if (!p) return null;
+  return { blob: p.blob, ext: p.format === 'data' ? 'json' : 'zip' };
 }
 
 export async function deleteRestorePoint(id: string): Promise<void> {

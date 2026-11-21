@@ -6,8 +6,13 @@ import type { ID, ImageIntent, Priority, Reference, Requirement, RequirementCate
 import { categoryLabel, PRIORITIES, priorityMeta, REQUIREMENT_CATEGORIES, REQUIREMENT_STATUSES, requirementStatusMeta } from '@/lib/labels';
 import { addRequirement, deleteRequirements, duplicateRequirement, reorderRequirements, updateRequirement } from '@/lib/db/requirements';
 import { looksLikeExclusion, suggestCategory, suggestPriority } from '@/lib/ai/text/parse';
-import { imagesFromClipboard, isAcceptedImage } from '@/lib/images/ingest';
-import { formatDateTime } from '@/lib/format';
+import { filesFromClipboard } from '@/lib/images/ingest';
+import { fileKindOf } from '@/lib/files/kind';
+import { fmtDateTime, num } from '@/i18n/format';
+import { matchesSearch } from '@/i18n/arabic';
+import { useT } from '@/i18n';
+import { FileTile } from '@/components/files/FileIcon';
+import { EnglishField, NeedsEnglishBadge } from '@/components/translate/EnglishField';
 import { ImageThumb } from '@/components/images/ImageThumb';
 import { DropTarget, usePasteImages } from '@/components/images/Dropzone';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -38,6 +43,7 @@ function splitTitle(text: string): { title: string; description: string } {
 }
 
 function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) {
+  const t = useT();
   const [text, setText] = useState('');
   const [category, setCategory] = useState<RequirementCategory | 'auto'>('auto');
   const [priority, setPriority] = useState<Priority | 'auto'>('auto');
@@ -59,16 +65,14 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
   useEffect(() => () => pendingRef.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
 
   const addFiles = (files: File[]) => {
-    const ok = files.filter((f) => isAcceptedImage(f));
-    if (ok.length < files.length) toast.error('Some files are not supported images and were skipped.');
     setPending((p) => [
       ...p,
-      ...ok.map((file) => ({
+      ...files.map((file) => ({
         id: `${file.name}-${file.size}-${Math.random()}`,
         file,
         url: URL.createObjectURL(file),
         caption: '',
-        intent: (effKind === 'avoid' ? 'avoid' : 'want') as ImageIntent,
+        intent: (fileKindOf(file.type, file.name) !== 'image' ? 'neutral' : effKind === 'avoid' ? 'avoid' : 'want') as ImageIntent,
       })),
     ]);
   };
@@ -94,7 +98,7 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
       setCategory('auto');
       setPriority('auto');
       setKind('auto');
-      toast.success('Requirement added');
+      toast.success(t.reqs.added);
       onAdded(req.id);
       textRef.current?.focus();
     } finally {
@@ -103,14 +107,14 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
   };
 
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const files = imagesFromClipboard(e);
+    const files = filesFromClipboard(e);
     if (!files.length) return;
     if (!e.clipboardData.getData('text/plain')) e.preventDefault();
     addFiles(files);
   };
 
   return (
-    <DropTarget onFiles={addFiles} overlayLabel="Drop images to attach to the new requirement" className="rounded-md border border-line bg-surface">
+    <DropTarget onFiles={addFiles} overlayLabel={t.reqs.dropOnNew} className="rounded-md border border-line bg-surface">
       <div className="p-4">
         <Textarea
           ref={textRef}
@@ -120,27 +124,31 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              submit();
+              void submit();
             }
           }}
           minRows={2}
           maxRows={10}
-          placeholder="Write a requirement… e.g. “A reading corner beside the window with two chairs and a small table.”"
-          className="!border-0 !bg-transparent !px-0 !shadow-none !ring-0 text-[14.5px]"
-          aria-label="New requirement"
+          placeholder={t.reqs.composerPlaceholder}
+          className="!border-0 !bg-transparent !px-0 !shadow-none !ring-0 !text-[15px]"
+          aria-label={t.reqs.newRequirement}
         />
         {pending.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-3">
             {pending.map((p) => (
-              <div key={p.id} className="w-[168px] overflow-hidden rounded-md border border-line bg-raised">
+              <div key={p.id} className="w-[150px] overflow-hidden rounded-md border border-line bg-raised sm:w-[168px]">
                 <div className="relative aspect-[4/3] bg-mist">
-                  <img src={p.url} alt="" className="h-full w-full object-cover" />
+                  {fileKindOf(p.file.type, p.file.name) === 'image' ? (
+                    <img src={p.url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <FileTile kind={fileKindOf(p.file.type, p.file.name)} ext={p.file.name.split('.').pop()} name={p.file.name} />
+                  )}
                   <IconButton
                     icon={X}
-                    label="Remove image"
+                    label={t.reqs.removeFile}
                     size="xs"
                     variant="overlay"
-                    className="absolute right-1.5 top-1.5"
+                    className="absolute end-1.5 top-1.5"
                     onClick={() => setPending((ps) => ps.filter((x) => x.id !== p.id))}
                   />
                 </div>
@@ -148,17 +156,17 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
                   <Input
                     value={p.caption}
                     onChange={(e) => setPending((ps) => ps.map((x) => (x.id === p.id ? { ...x, caption: e.target.value } : x)))}
-                    placeholder="Caption"
-                    className="!h-7 text-[12px]"
-                    aria-label="Caption"
+                    placeholder={t.reqs.captionPlaceholder}
+                    className="!h-9 !text-[12.5px] sm:!h-7"
+                    aria-label={t.reqs.captionPlaceholder}
                   />
                   <Segmented
                     size="sm"
                     value={p.intent}
                     onChange={(v) => setPending((ps) => ps.map((x) => (x.id === p.id ? { ...x, intent: v } : x)))}
                     options={[
-                      { value: 'want', label: 'Want' },
-                      { value: 'avoid', label: 'Avoid' },
+                      { value: 'want', label: t.refs.want },
+                      { value: 'avoid', label: t.refs.avoid },
                     ]}
                   />
                 </div>
@@ -171,10 +179,10 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
         <Select
           value={category}
           onChange={(e) => setCategory(e.target.value as RequirementCategory | 'auto')}
-          className="!h-8 w-[200px] text-[12.5px]"
-          aria-label="Category"
+          className="!h-10 w-full !text-[13px] sm:!h-8 sm:w-[210px] sm:!text-[12.5px]"
+          aria-label={t.reqs.fieldCategory}
         >
-          <option value="auto">Category: {categoryLabel(autoCategory)} (auto)</option>
+          <option value="auto">{t.reqs.categoryAuto(categoryLabel(autoCategory))}</option>
           {REQUIREMENT_CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
@@ -186,25 +194,24 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
           value={effPriority}
           onChange={(v) => setPriority(v)}
           options={PRIORITIES.map((p) => ({ value: p.value, label: p.short }))}
-          ariaLabel="Priority"
+          ariaLabel={t.reqs.priority}
         />
         <Segmented
           size="sm"
           value={effKind}
           onChange={(v) => setKind(v)}
           options={[
-            { value: 'want', label: 'Want' },
-            { value: 'avoid', label: 'Don’t want' },
+            { value: 'want', label: t.reqs.want },
+            { value: 'avoid', label: t.reqs.dontWant },
           ]}
-          ariaLabel="Want or exclusion"
+          ariaLabel={t.reqs.wantOrAvoid}
         />
-        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-[12.5px] text-ink-2 hover:bg-mist">
+        <label className="touch-target inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-[12.5px] text-ink-2 hover:bg-mist">
           <ImageIcon size={14} />
-          Add images
+          {t.reqs.addFiles}
           <input
             type="file"
             multiple
-            accept="image/*,.heic,.heif"
             className="hidden"
             onChange={(e) => {
               addFiles(Array.from(e.target.files ?? []));
@@ -212,12 +219,12 @@ function Composer({ room, onAdded }: { room: Room; onAdded: (id: ID) => void }) 
             }}
           />
         </label>
-        <span className="ml-auto hidden items-center gap-1 text-[11.5px] text-ink-4 sm:inline-flex">
+        <span className="ms-auto hidden items-center gap-1 text-[11.5px] text-ink-4 lg:inline-flex">
           <Kbd>⌘</Kbd>
-          <Kbd>↵</Kbd> to add · paste or drop images
+          <Kbd>↵</Kbd> {t.reqs.shortcut}
         </span>
-        <Button variant="primary" size="sm" icon={Plus} onClick={submit} loading={saving} disabled={!text.trim()}>
-          Add requirement
+        <Button variant="primary" size="sm" icon={Plus} onClick={submit} loading={saving} disabled={!text.trim()} className="ms-auto lg:ms-0">
+          {t.reqs.add}
         </Button>
       </div>
     </DropTarget>
@@ -243,6 +250,7 @@ function RequirementCard({
   dragProps?: { draggable: boolean; onDragStart: () => void; onDragOver: (e: DragEvent) => void; onDrop: () => void; dragging: boolean };
   onMove: (dir: -1 | 1) => void;
 }) {
+  const t = useT();
   const confirm = useConfirm();
   const { attach } = useAttachToRequirement(room);
   const p = priorityMeta(req.priority);
@@ -255,14 +263,14 @@ function RequirementCard({
 
   const remove = async () => {
     const r = await confirm({
-      title: 'Delete this requirement?',
+      title: t.reqs.deleteTitle,
       tone: 'danger',
-      confirmLabel: 'Delete',
-      description: images.length ? `Its ${images.length} attached image(s) will be removed unless they are used elsewhere.` : 'This cannot be undone.',
+      confirmLabel: t.reqs.deleteConfirm,
+      description: t.reqs.deleteBody(images.length),
     });
     if (r.confirmed) {
       await deleteRequirements([req.id]);
-      toast.success('Requirement deleted');
+      toast.success(t.reqs.deleted, { description: t.trash.moveHint });
     }
   };
 
@@ -277,20 +285,20 @@ function RequirementCard({
         dragProps?.dragging && 'opacity-40',
       )}
     >
-      <DropTarget onFiles={(files) => attach(req, files)} overlayLabel={`Drop to attach to “${req.title || 'requirement'}”`}>
+      <DropTarget onFiles={(files) => attach(req, files)} overlayLabel={t.reqs.dropOnExisting(req.title || t.reqs.requirementWord)}>
         <div className="flex items-start gap-2 px-3 py-3">
           {dragProps?.draggable ? (
             <span
               draggable
               onDragStart={dragProps.onDragStart}
-              className="mt-0.5 cursor-grab text-ink-4 hover:text-ink-2 active:cursor-grabbing"
-              aria-label="Drag to reorder"
-              title="Drag to reorder"
+              className="mt-0.5 hidden cursor-grab text-ink-4 hover:text-ink-2 active:cursor-grabbing sm:block"
+              aria-label={t.reqs.dragToReorder}
+              title={t.reqs.dragToReorder}
             >
               <GripVertical size={16} />
             </span>
           ) : (
-            <span className="w-4" />
+            <span className="hidden w-4 sm:block" />
           )}
           <span
             className={cn(
@@ -299,17 +307,22 @@ function RequirementCard({
             )}
             title={p.label}
           />
-          <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left" aria-expanded={expanded}>
+          <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-start" aria-expanded={expanded}>
             <div className={cn('text-[14px] leading-snug text-ink', req.status === 'rejected' && 'text-ink-3 line-through')} dir="auto">
-              {req.kind === 'avoid' && <Ban size={13} className="-mt-0.5 mr-1.5 inline text-danger" aria-label="Exclusion" />}
-              {req.title || <span className="text-ink-4">Untitled requirement</span>}
+              {req.kind === 'avoid' && <Ban size={13} className="-mt-0.5 me-1.5 inline text-danger" aria-label={t.reqs.exclusion} />}
+              {req.title || <span className="text-ink-4">{t.reqs.untitled}</span>}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-3">
               <span>{categoryLabel(req.category)}</span>
               <span>{p.label}</span>
-              {req.kind === 'avoid' && <span className="text-danger">Exclusion</span>}
-              {req.group && <span>Group: {req.group}</span>}
-              {!expanded && req.description && <span className="max-w-[420px] truncate text-ink-4">{req.description}</span>}
+              {req.kind === 'avoid' && <span className="text-danger">{t.reqs.exclusion}</span>}
+              {req.group && <span dir="auto">{t.reqs.group(req.group)}</span>}
+              <NeedsEnglishBadge texts={[req.title, req.description]} />
+              {!expanded && req.description && (
+                <span className="max-w-[420px] truncate text-ink-4" dir="auto">
+                  {req.description}
+                </span>
+              )}
             </div>
           </button>
           {images.length > 0 && !expanded && (
@@ -319,7 +332,7 @@ function RequirementCard({
               ))}
               {images.length > 3 && (
                 <span className="flex h-9 w-9 items-center justify-center rounded-sm border-2 border-surface bg-mist text-[11px] text-ink-3">
-                  +{images.length - 3}
+                  +{num(images.length - 3)}
                 </span>
               )}
             </div>
@@ -329,48 +342,50 @@ function RequirementCard({
             trigger={
               <button
                 type="button"
-                className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm px-2 text-[12px] text-ink-2 hover:bg-mist"
-                aria-label="Change requirement status"
+                className="touch-target inline-flex h-7 shrink-0 items-center gap-1.5 rounded-sm px-2 text-[12px] text-ink-2 hover:bg-mist"
+                aria-label={t.reqs.changeStatus}
               >
                 <Dot tone={st.tone} /> <span className="hidden md:inline">{st.label}</span> <ChevronDown size={12} />
               </button>
             }
             items={REQUIREMENT_STATUSES.map((s) => ({
               label: s.label,
-              hint: s.value === req.status ? 'current' : undefined,
+              hint: s.value === req.status ? t.reqs.current : undefined,
               onSelect: () => updateRequirement(req.id, { status: s.value }),
             }))}
           />
           <Menu
-            trigger={<IconButton icon={MoreHorizontal} label="Requirement actions" />}
+            trigger={<IconButton icon={MoreHorizontal} label={t.reqs.actions} />}
             items={[
-              { label: expanded ? 'Collapse' : 'Edit', onSelect: onToggle },
-              { label: 'Duplicate', icon: Copy, onSelect: () => duplicateRequirement(req.id) },
-              { label: 'Move up', icon: ChevronUp, onSelect: () => onMove(-1) },
-              { label: 'Move down', icon: ChevronDown, onSelect: () => onMove(1) },
+              { label: expanded ? t.reqs.collapse : t.reqs.edit, onSelect: onToggle },
+              { label: t.common.duplicate, icon: Copy, onSelect: () => duplicateRequirement(req.id) },
+              { label: t.reqs.moveUp, icon: ChevronUp, onSelect: () => onMove(-1) },
+              { label: t.reqs.moveDown, icon: ChevronDown, onSelect: () => onMove(1) },
               'separator',
-              { label: 'Delete', icon: Trash2, danger: true, onSelect: remove },
+              { label: t.common.deleteEllipsis, icon: Trash2, danger: true, onSelect: remove },
             ]}
           />
         </div>
 
         {expanded && (
-          <div className="border-t border-line px-4 pb-4 pt-4 sm:pl-[52px]">
+          <div className="border-t border-line px-4 pb-4 pt-4 sm:ps-[52px]">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Title" className="md:col-span-2">
-                <CommitInput value={req.title} onCommit={(v) => updateRequirement(req.id, { title: v })} aria-label="Title" />
+              <Field label={t.reqs.fieldTitle} className="md:col-span-2">
+                <CommitInput value={req.title} onCommit={(v) => updateRequirement(req.id, { title: v })} aria-label={t.reqs.fieldTitle} />
               </Field>
-              <Field label="Detailed description" className="md:col-span-2">
+              <EnglishField source={req.title} className="md:col-span-2" compact />
+              <Field label={t.reqs.fieldDescription} className="md:col-span-2">
                 <CommitInput
                   multiline
                   minRows={2}
                   value={req.description}
                   onCommit={(v) => updateRequirement(req.id, { description: v })}
-                  placeholder="Details, measurements, preferences…"
-                  aria-label="Description"
+                  placeholder={t.reqs.descriptionPlaceholder}
+                  aria-label={t.reqs.fieldDescription}
                 />
               </Field>
-              <Field label="Category">
+              <EnglishField source={req.description} className="md:col-span-2" />
+              <Field label={t.reqs.fieldCategory}>
                 <Select value={req.category} onChange={(e) => updateRequirement(req.id, { category: e.target.value as RequirementCategory })}>
                   {REQUIREMENT_CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>
@@ -379,7 +394,7 @@ function RequirementCard({
                   ))}
                 </Select>
               </Field>
-              <Field label="Status">
+              <Field label={t.reqs.fieldStatus}>
                 <Select value={req.status} onChange={(e) => updateRequirement(req.id, { status: e.target.value as RequirementStatus })}>
                   {REQUIREMENT_STATUSES.map((s) => (
                     <option key={s.value} value={s.value}>
@@ -388,44 +403,44 @@ function RequirementCard({
                   ))}
                 </Select>
               </Field>
-              <Field label="Priority">
+              <Field label={t.reqs.fieldPriority}>
                 <Segmented
                   value={req.priority}
                   onChange={(v) => updateRequirement(req.id, { priority: v })}
                   options={PRIORITIES.map((x) => ({ value: x.value, label: x.label }))}
                 />
               </Field>
-              <Field label="Type">
+              <Field label={t.reqs.fieldType}>
                 <Segmented
                   value={req.kind}
                   onChange={(v) => updateRequirement(req.id, { kind: v })}
                   options={[
-                    { value: 'want', label: 'I want this' },
-                    { value: 'avoid', label: 'I don’t want this' },
+                    { value: 'want', label: t.reqs.iWant },
+                    { value: 'avoid', label: t.reqs.iDontWant },
                   ]}
                 />
               </Field>
-              <Field label="Group" hint="Optional, e.g. “Reading corner” or “TV wall”.">
+              <Field label={t.reqs.fieldGroup} hint={t.reqs.groupHint}>
                 <GroupInput value={req.group} groups={groups} onCommit={(v) => updateRequirement(req.id, { group: v })} />
               </Field>
-              <Field label="Source">
+              <Field label={t.reqs.fieldSource}>
                 <CommitInput
                   value={req.source}
                   onCommit={(v) => updateRequirement(req.id, { source: v })}
-                  placeholder="e.g. Family discussion, magazine, designer"
-                  aria-label="Source"
+                  placeholder={t.reqs.sourcePlaceholder}
+                  aria-label={t.reqs.fieldSource}
                 />
               </Field>
-              <Field label="Notes" className="md:col-span-2">
-                <CommitInput multiline minRows={1} value={req.notes} onCommit={(v) => updateRequirement(req.id, { notes: v })} aria-label="Notes" />
+              <Field label={t.reqs.fieldNotes} className="md:col-span-2">
+                <CommitInput multiline minRows={1} value={req.notes} onCommit={(v) => updateRequirement(req.id, { notes: v })} aria-label={t.reqs.fieldNotes} />
               </Field>
             </div>
             <div className="mt-6">
               <RequirementImages room={room} requirement={req} images={images} />
             </div>
             <div className="mt-4 flex flex-wrap gap-x-5 text-[11px] text-ink-4">
-              <span>Created {formatDateTime(req.createdAt)}</span>
-              <span>Modified {formatDateTime(req.updatedAt)}</span>
+              <span>{t.reqs.created(fmtDateTime(req.createdAt))}</span>
+              <span>{t.reqs.modified(fmtDateTime(req.updatedAt))}</span>
             </div>
           </div>
         )}
@@ -435,6 +450,7 @@ function RequirementCard({
 }
 
 function GroupInput({ value, groups, onCommit }: { value: string; groups: string[]; onCommit: (v: string) => void }) {
+  const t = useT();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const id = `groups-${Math.abs(groups.join('|').length)}`;
@@ -446,7 +462,7 @@ function GroupInput({ value, groups, onCommit }: { value: string; groups: string
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => draft !== value && onCommit(draft.trim())}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        placeholder="No group"
+        placeholder={t.reqs.noGroup}
       />
       <datalist id={id}>
         {groups.map((g) => (
@@ -458,6 +474,7 @@ function GroupInput({ value, groups, onCommit }: { value: string; groups: string
 }
 
 export function RequirementsTab({ room, requirements, references }: { room: Room; requirements: Requirement[]; references: Reference[] }) {
+  const t = useT();
   const [params, setParams] = useSearchParams();
   const [expanded, setExpanded] = useState<ID | null>(params.get('focus'));
   const [q, setQ] = useState('');
@@ -482,7 +499,7 @@ export function RequirementsTab({ room, requirements, references }: { room: Room
   const expandedReq = requirements.find((r) => r.id === expanded);
   usePasteImages((files) => {
     if (expandedReq) attach(expandedReq, files);
-    else toast.info('Open a requirement (or click into the new-requirement box) to paste images into it.');
+    else toast.info(t.reqs.pasteHint);
   }, true);
 
   const imagesFor = useMemo(() => {
@@ -494,12 +511,11 @@ export function RequirementsTab({ room, requirements, references }: { room: Room
   const groups = useMemo(() => Array.from(new Set(requirements.map((r) => r.group).filter(Boolean))).sort(), [requirements]);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
     return requirements.filter(
       (r) =>
         (statusFilter === 'all' || r.status === statusFilter) &&
         (priorityFilter === 'all' || r.priority === priorityFilter) &&
-        (!needle || `${r.title} ${r.description} ${r.notes} ${r.group}`.toLowerCase().includes(needle)),
+        (!q.trim() || matchesSearch(`${r.title} ${r.description} ${r.notes} ${r.group}`, q)),
     );
   }, [requirements, q, statusFilter, priorityFilter]);
 
@@ -512,10 +528,10 @@ export function RequirementsTab({ room, requirements, references }: { room: Room
           ? PRIORITIES.map((p) => ({ key: p.value, label: p.label }))
           : groupBy === 'status'
             ? REQUIREMENT_STATUSES.map((s) => ({ key: s.value, label: s.label }))
-            : [...groups.map((g) => ({ key: g, label: g })), { key: '', label: 'No group' }];
+            : [...groups.map((g) => ({ key: g, label: g })), { key: '', label: t.reqs.noGroup }];
     const keyOf = (r: Requirement) => (groupBy === 'category' ? r.category : groupBy === 'priority' ? r.priority : groupBy === 'status' ? r.status : r.group);
     return order.map((o) => ({ ...o, items: filtered.filter((r) => keyOf(r) === o.key) })).filter((g) => g.items.length);
-  }, [filtered, groupBy, groups]);
+  }, [filtered, groupBy, groups, t]);
 
   const move = async (id: ID, dir: -1 | 1) => {
     const ids = requirements.map((r) => r.id);
@@ -546,72 +562,59 @@ export function RequirementsTab({ room, requirements, references }: { room: Room
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="display text-[28px]">Requirements</h2>
-            <p className="mt-1 max-w-[640px] text-[12.5px] leading-relaxed text-ink-3">
-              Your requirements are the primary input for every design of this room. Images stay attached to the requirement they illustrate.
-            </p>
+            <h2 className="display text-[28px]">{t.reqs.title}</h2>
+            <p className="mt-1 max-w-[640px] text-[12.5px] leading-relaxed text-ink-3">{t.reqs.lead}</p>
           </div>
           <Button icon={ListPlus} onClick={() => setBulk(true)}>
-            Paste multiple
+            {t.reqs.pasteMultiple}
           </Button>
         </div>
         <Composer room={room} onAdded={(id) => setExpanded((e) => (e === id ? e : null))} />
       </section>
 
       <section>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] flex-1 sm:max-w-[280px]">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search requirements" className="pl-8" aria-label="Search requirements" />
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="relative col-span-2 min-w-[200px] flex-1 sm:max-w-[280px]">
+            <Search size={14} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.reqs.search} className="ps-8" aria-label={t.reqs.search} />
           </div>
-          <Select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)} className="w-[170px]" aria-label="Group by">
-            <option value="category">Group by category</option>
-            <option value="priority">Group by priority</option>
-            <option value="status">Group by status</option>
-            <option value="group">Group by custom group</option>
-            <option value="none">No grouping (manual order)</option>
+          <Select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)} className="col-span-2 sm:w-[200px]" aria-label={t.reqs.groupBy}>
+            <option value="category">{t.reqs.byCategory}</option>
+            <option value="priority">{t.reqs.byPriority}</option>
+            <option value="status">{t.reqs.byStatus}</option>
+            <option value="group">{t.reqs.byGroup}</option>
+            <option value="none">{t.reqs.noGrouping}</option>
           </Select>
-          <Select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')}
-            className="w-[150px]"
-            aria-label="Filter priority"
-          >
-            <option value="all">All priorities</option>
+          <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')} className="sm:w-[150px]" aria-label={t.reqs.filterPriority}>
+            <option value="all">{t.reqs.allPriorities}</option>
             {PRIORITIES.map((p) => (
               <option key={p.value} value={p.value}>
                 {p.label}
               </option>
             ))}
           </Select>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as RequirementStatus | 'all')}
-            className="w-[170px]"
-            aria-label="Filter status"
-          >
-            <option value="all">All statuses</option>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as RequirementStatus | 'all')} className="sm:w-[170px]" aria-label={t.reqs.filterStatus}>
+            <option value="all">{t.reqs.allStatuses}</option>
             {REQUIREMENT_STATUSES.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
               </option>
             ))}
           </Select>
-          <div className="ml-auto flex flex-wrap gap-1.5 text-[12px] text-ink-3">
-            <Badge>{requirements.length} total</Badge>
-            <Badge tone="danger">{counts.must} must</Badge>
-            {counts.avoid > 0 && <Badge tone="neutral">{counts.avoid} exclusions</Badge>}
-            <Badge tone="neutral">{counts.images} images</Badge>
+          <div className="col-span-2 flex flex-wrap gap-1.5 text-[12px] text-ink-3 sm:ms-auto">
+            <Badge>{t.reqs.total(requirements.length)}</Badge>
+            <Badge tone="danger">{t.reqs.must(counts.must)}</Badge>
+            {counts.avoid > 0 && <Badge tone="neutral">{t.reqs.exclusions(counts.avoid)}</Badge>}
+            <Badge tone="neutral">{t.reqs.files(counts.images)}</Badge>
           </div>
         </div>
 
         {requirements.length === 0 ? (
-          <EmptyState icon={ClipboardList} title="No requirements yet">
-            Write your first requirement above, or use <strong>Paste multiple</strong> to import a list. Attach photos of furniture, materials or details you
-            like — or don't.
+          <EmptyState icon={ClipboardList} title={t.reqs.emptyTitle}>
+            {t.reqs.emptyBody}
           </EmptyState>
         ) : filtered.length === 0 ? (
-          <EmptyState compact title="No requirements match the filters" />
+          <EmptyState compact title={t.reqs.noMatch} />
         ) : (
           <div className="flex flex-col gap-7">
             {grouped.map((g) => (
@@ -619,7 +622,7 @@ export function RequirementsTab({ room, requirements, references }: { room: Room
                 {g.label && (
                   <div className="mb-2 flex items-center gap-2">
                     <span className="eyebrow">{g.label}</span>
-                    <span className="text-[11px] text-ink-4">{g.items.length}</span>
+                    <span className="text-[11px] text-ink-4">{num(g.items.length)}</span>
                   </div>
                 )}
                 <div className="flex flex-col gap-2">

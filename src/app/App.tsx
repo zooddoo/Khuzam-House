@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react';
 import { RouterProvider } from 'react-router';
 import { Toaster } from 'sonner';
-import { ensureSeeded } from '@/lib/db/seed';
+import { I18nProvider, useI18n } from '@/i18n';
 import { TooltipProvider } from '@/components/ui/Overlay';
 import { ConfirmProvider } from '@/components/ui/Confirm';
 import { LightboxProvider } from '@/components/images/Lightbox';
-import { Spinner } from '@/components/ui/Display';
+import { Splash } from './auth/AuthScreens';
+import { GateLayout } from './auth/AuthScreens';
+import { CloudGate } from './CloudGate';
 import { router } from './router';
+import { db } from '@/lib/db/db';
 
 type BootState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; message: string };
 
-export function App() {
+/** Opens the on-device database (and asks the browser to keep it) before anything else. */
+function useLocalStorageReady(): BootState {
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
-
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        if (!('indexedDB' in window)) throw new Error('This browser does not provide IndexedDB storage.');
-        await ensureSeeded();
-        // Ask the browser not to evict project data under storage pressure.
+        if (!('indexedDB' in window)) throw new Error('IndexedDB is not available');
+        await db.open();
         try {
           if (navigator.storage?.persisted && !(await navigator.storage.persisted())) await navigator.storage.persist?.();
         } catch {
@@ -34,46 +36,55 @@ export function App() {
       alive = false;
     };
   }, []);
+  return boot;
+}
 
-  if (boot.status === 'loading') {
-    return (
-      <div className="flex h-full items-center justify-center gap-3 text-[13px] text-ink-3">
-        <Spinner /> Opening Bait Khuzam Studio…
-      </div>
-    );
-  }
+function Studio() {
+  const { t, lang, dir } = useI18n();
+  const boot = useLocalStorageReady();
+
+  if (boot.status === 'loading') return <Splash label={t.app.opening} />;
   if (boot.status === 'error') {
     return (
-      <div className="mx-auto flex h-full max-w-[560px] flex-col justify-center px-6">
-        <h1 className="display text-[38px]">Storage is unavailable</h1>
-        <p className="mt-3 text-[14px] leading-relaxed text-ink-2">
-          Bait Khuzam Studio keeps your project in this browser's local database, but it could not be opened: <em>{boot.message}</em>
-        </p>
-        <p className="mt-3 text-[13px] leading-relaxed text-ink-3">
-          Private / incognito windows and some strict privacy settings block local storage. Open the studio in a normal window of Chrome, Edge, Safari or
-          Firefox.
-        </p>
-      </div>
+      <GateLayout title={t.app.storageUnavailable} lead={t.app.storageUnavailableBody(boot.message)}>
+        <p className="text-[13px] leading-relaxed text-ink-3">{t.app.storageUnavailableHint}</p>
+      </GateLayout>
     );
   }
 
   return (
-    <TooltipProvider>
-      <ConfirmProvider>
+    <>
+      <CloudGate>
         <LightboxProvider>
-          <RouterProvider router={router} />
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              classNames: {
-                toast: '!rounded-md !border !border-line !bg-raised !text-ink !shadow-pop !font-sans',
-                description: '!text-ink-3',
-                actionButton: '!bg-ink !text-canvas',
-              },
-            }}
-          />
+          {/* Re-mount the studio when the language changes so every label updates. */}
+          <RouterProvider key={lang} router={router} />
         </LightboxProvider>
-      </ConfirmProvider>
-    </TooltipProvider>
+      </CloudGate>
+      <Toaster
+        dir={dir}
+        position="bottom-center"
+        offset={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
+        mobileOffset={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
+        toastOptions={{
+          classNames: {
+            toast: '!rounded-md !border !border-line !bg-raised !text-ink !shadow-pop !font-sans',
+            description: '!text-ink-3',
+            actionButton: '!bg-ink !text-canvas',
+          },
+        }}
+      />
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <I18nProvider>
+      <TooltipProvider>
+        <ConfirmProvider>
+          <Studio />
+        </ConfirmProvider>
+      </TooltipProvider>
+    </I18nProvider>
   );
 }

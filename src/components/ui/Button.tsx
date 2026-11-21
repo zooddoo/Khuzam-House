@@ -33,6 +33,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+/** Arrow / chevron icons point the other way in right-to-left layouts. */
+export const FLIP_RTL = 'rtl:-scale-x-100';
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'secondary', size = 'md', icon: Icon, iconRight: IconRight, loading, className, children, disabled, type = 'button', ...rest },
   ref,
@@ -43,7 +46,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-sm font-medium tracking-[0.005em] transition-colors duration-150 disabled:cursor-not-allowed',
+        'touch-target inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed',
         VARIANT[variant],
         SIZE[size],
         className,
@@ -52,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     >
       {loading ? <Loader2 size={ICON_SIZE[size]} className="animate-spin" /> : Icon ? <Icon size={ICON_SIZE[size]} strokeWidth={1.75} /> : null}
       {children}
-      {IconRight && <IconRight size={ICON_SIZE[size]} strokeWidth={1.75} />}
+      {IconRight && <IconRight size={ICON_SIZE[size]} strokeWidth={1.75} className={FLIP_RTL} />}
     </button>
   );
 });
@@ -68,7 +71,7 @@ export function ButtonLink({
   return (
     <Link
       className={cn(
-        'inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-sm font-medium transition-colors duration-150',
+        'touch-target inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-sm font-medium transition-colors duration-150',
         VARIANT[variant],
         SIZE[size],
         className,
@@ -110,7 +113,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       aria-pressed={active}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40',
+        'touch-target inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40',
         ICON_BTN_SIZE[size],
         ICON_BTN_VARIANT[variant],
         active && 'bg-sand/70 text-ink',

@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate, useRouteError, isRouteErrorResponse, Link } from 'react-router';
+import { createBrowserRouter, Navigate, useRouteError, isRouteErrorResponse, Link } from 'react-router';
 import { AppShell } from './AppShell';
 import { HomePage } from '@/features/home/HomePage';
 import { RoomsPage } from '@/features/rooms/RoomsPage';
@@ -8,35 +8,46 @@ import { DesignStudioPage } from '@/features/studio/DesignStudioPage';
 import { DesignLibraryPage } from '@/features/library/DesignLibraryPage';
 import { MaterialsPage } from '@/features/materials/MaterialsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { RecentlyDeletedPage } from '@/features/trash/RecentlyDeletedPage';
+import { useT } from '@/i18n';
 
 function RouteError() {
+  const t = useT();
   const err = useRouteError();
-  const message = isRouteErrorResponse(err) ? `${err.status} ${err.statusText}` : err instanceof Error ? err.message : 'Unexpected error';
+  const message = isRouteErrorResponse(err) ? `${err.status} ${err.statusText}` : err instanceof Error ? err.message : t.common.somethingWrong;
   return (
     <div className="mx-auto max-w-[620px] px-6 py-24">
-      <div className="eyebrow mb-2">Something went wrong</div>
-      <h1 className="display text-[40px]">This view could not be displayed</h1>
-      <p className="mt-3 text-[13.5px] text-ink-2">{message}</p>
-      <p className="mt-2 text-[12.5px] text-ink-3">Your data is stored locally and is not affected. Try going back to the home screen.</p>
+      <div className="eyebrow mb-2">{t.app.routeErrorEyebrow}</div>
+      <h1 className="display text-[34px] sm:text-[40px]">{t.app.routeErrorTitle}</h1>
+      <p className="mt-3 text-[13.5px] text-ink-2" dir="auto">
+        {message}
+      </p>
+      <p className="mt-2 text-[12.5px] text-ink-3">{t.app.routeErrorHint}</p>
       <Link to="/" className="mt-6 inline-block text-[13px] text-accent underline underline-offset-4">
-        Go to Home
+        {t.app.goHome}
       </Link>
     </div>
   );
 }
 
 function NotFound() {
+  const t = useT();
   return (
     <div className="py-24 text-center">
-      <h1 className="display text-[40px]">Page not found</h1>
+      <h1 className="display text-[34px] sm:text-[40px]">{t.app.notFound}</h1>
       <Link to="/" className="mt-4 inline-block text-[13px] text-accent underline underline-offset-4">
-        Go to Home
+        {t.app.goHome}
       </Link>
     </div>
   );
 }
 
-export const router = createHashRouter([
+// Links saved from the earlier version used "#/rooms/…" addresses.
+if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
+  window.history.replaceState(null, '', window.location.hash.slice(1));
+}
+
+export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
@@ -56,6 +67,7 @@ export const router = createHashRouter([
       { path: 'materials', element: <Navigate to="furniture" replace /> },
       { path: 'materials/:tab', element: <MaterialsPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'deleted', element: <RecentlyDeletedPage /> },
       { path: '*', element: <NotFound /> },
     ],
   },

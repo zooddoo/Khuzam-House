@@ -1,41 +1,47 @@
 import { useMemo, useState } from 'react';
 import { Download, Expand, ImageIcon, Link2Off, Pencil, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Reference, ReferenceKind, Room } from '@/lib/types';
+import type { FileKind, Reference, ReferenceKind, Room } from '@/lib/types';
 import { REFERENCE_KINDS } from '@/lib/labels';
 import { deleteReferences, updateReference } from '@/lib/db/references';
 import { setRoomCover } from '@/lib/db/rooms';
 import { getOriginalBlob } from '@/lib/hooks/useImageUrl';
+import { useFilesMap } from '@/lib/hooks/data';
 import { downloadBlob } from '@/lib/download';
+import { useT } from '@/i18n';
+import { num } from '@/i18n/format';
 import { Dropzone, usePasteImages } from '@/components/images/Dropzone';
 import { useUploadReferences } from '@/components/images/useUpload';
-import { ReferenceCard, ReferenceEditor } from '@/components/images/references';
-import { useLightbox } from '@/components/images/Lightbox';
+import { ReferenceCard, ReferenceEditor, useOpenReference } from '@/components/images/references';
 import { Chip, Field, Select } from '@/components/ui/Form';
 import { EmptyState } from '@/components/ui/Display';
 import { useConfirm } from '@/components/ui/Confirm';
 
 export function PhotosTab({ room, references }: { room: Room; references: Reference[] }) {
+  const t = useT();
+  const P = t.photos;
   const { upload, busy } = useUploadReferences();
-  const lightbox = useLightbox();
+  const openRef = useOpenReference();
   const confirm = useConfirm();
+  const files = useFilesMap();
   const [kind, setKind] = useState<ReferenceKind>('site-photo');
   const [filter, setFilter] = useState<ReferenceKind | 'all'>('all');
+  const [fileFilter, setFileFilter] = useState<FileKind | 'all'>('all');
   const [editing, setEditing] = useState<Reference | null>(null);
 
-  const doUpload = (files: File[]) => upload(files, { kind, roomIds: [room.id] });
+  const doUpload = (picked: File[]) => upload(picked, { kind, roomIds: [room.id] });
   usePasteImages(doUpload);
 
-  const list = useMemo(() => references.filter((r) => filter === 'all' || r.kind === filter), [references, filter]);
+  const list = useMemo(
+    () => references.filter((r) => (filter === 'all' || r.kind === filter) && (fileFilter === 'all' || files?.get(r.imageId)?.kind === fileFilter)),
+    [references, filter, fileFilter, files],
+  );
   const kindsPresent = useMemo(() => new Set(references.map((r) => r.kind)), [references]);
+  const fileKindsPresent = useMemo(() => Array.from(new Set(references.map((r) => files?.get(r.imageId)?.kind).filter(Boolean))) as FileKind[], [references, files]);
 
   const removeFromRoom = async (r: Reference) => {
     const remainingLinks = r.roomIds.filter((x) => x !== room.id).length + r.libraryItemIds.length + r.versionIds.length;
-    const res = await confirm({
-      title: 'Remove from this room?',
-      description: remainingLinks ? 'The image stays in the Design Library and its other links.' : 'The image will stay in the Design Library, unlinked.',
-      confirmLabel: 'Remove from room',
-    });
+    const res = await confirm({ title: P.removeTitle, description: remainingLinks ? P.removeKeepLinks : P.removeUnlinked, confirmLabel: P.removeConfirm });
     if (!res.confirmed) return;
     await updateReference(r.id, {
       roomIds: r.roomIds.filter((x) => x !== room.id),
@@ -46,29 +52,21 @@ export function PhotosTab({ room, references }: { room: Room; references: Refere
   };
 
   const remove = async (r: Reference) => {
-    const res = await confirm({
-      title: 'Delete this image?',
-      tone: 'danger',
-      confirmLabel: 'Delete',
-      description: 'It is removed everywhere in the project. Design versions that used it keep a copy in their history.',
-    });
+    const res = await confirm({ title: P.deleteTitle, tone: 'danger', confirmLabel: t.refs.deleteConfirm, description: P.deleteBody });
     if (!res.confirmed) return;
     await deleteReferences([r.id]);
-    toast.success('Image deleted');
+    toast.success(P.deleted, { description: t.trash.moveHint });
   };
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h2 className="display text-[28px]">Photos & references</h2>
-        <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-ink-3">
-          Actual photos of the room are the most important input for a faithful redesign. Upload them here; attach images to specific requirements in the
-          Requirements tab.
-        </p>
+        <h2 className="display text-[28px]">{P.title}</h2>
+        <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-ink-3">{P.lead}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch">
-        <Field label="Upload as">
+        <Field label={P.uploadAs}>
           <Select value={kind} onChange={(e) => setKind(e.target.value as ReferenceKind)}>
             {REFERENCE_KINDS.filter((k) => k.value !== 'generated').map((k) => (
               <option key={k.value} value={k.value}>
@@ -76,66 +74,78 @@ export function PhotosTab({ room, references }: { room: Room; references: Refere
               </option>
             ))}
           </Select>
-          <p className="text-[11.5px] leading-relaxed text-ink-3">You can paste images anywhere on this page (⌘/Ctrl+V).</p>
+          <p className="hidden text-[11.5px] leading-relaxed text-ink-3 sm:block">{P.pasteHint}</p>
         </Field>
-        <Dropzone onFiles={doUpload} busy={busy} label="Drop room photos here, or click to browse" />
+        <Dropzone onFiles={doUpload} busy={busy} label={P.drop} />
       </div>
 
       {references.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
-            All <span className="opacity-60">{references.length}</span>
-          </Chip>
-          {REFERENCE_KINDS.filter((k) => kindsPresent.has(k.value)).map((k) => (
-            <Chip key={k.value} active={filter === k.value} onClick={() => setFilter(k.value)}>
-              {k.label} <span className="opacity-60">{references.filter((r) => r.kind === k.value).length}</span>
+        <div className="flex flex-col gap-2">
+          <div className="scroll-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            <Chip active={filter === 'all'} onClick={() => setFilter('all')} className="shrink-0">
+              {P.all} <span className="opacity-60">{num(references.length)}</span>
             </Chip>
-          ))}
+            {REFERENCE_KINDS.filter((k) => kindsPresent.has(k.value)).map((k) => (
+              <Chip key={k.value} active={filter === k.value} onClick={() => setFilter(k.value)} className="shrink-0">
+                {k.label} <span className="opacity-60">{num(references.filter((r) => r.kind === k.value).length)}</span>
+              </Chip>
+            ))}
+          </div>
+          {fileKindsPresent.length > 1 && (
+            <div className="scroll-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              <Chip active={fileFilter === 'all'} onClick={() => setFileFilter('all')} className="shrink-0">
+                {t.refs.allFileTypes}
+              </Chip>
+              {fileKindsPresent.map((k) => (
+                <Chip key={k} active={fileFilter === k} onClick={() => setFileFilter(k)} className="shrink-0">
+                  {t.enums.fileKind[k]}
+                </Chip>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {references.length === 0 ? (
-        <EmptyState icon={ImageIcon} title="No images for this room yet">
-          Photograph each wall from inside the room, standing in a corner, at eye level. Include ceilings, windows, doors and AC units.
+        <EmptyState icon={ImageIcon} title={P.emptyTitle}>
+          {P.emptyBody}
         </EmptyState>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-          {list.map((r) => (
-            <ReferenceCard
-              key={r.id}
-              reference={r}
-              onOpen={() =>
-                lightbox(
-                  list.map((x) => ({ imageId: x.imageId, title: x.title, description: x.explanation })),
-                  list.indexOf(r),
-                )
-              }
-              onEdit={() => setEditing(r)}
-              footer={
-                room.coverReferenceId === r.id ? (
-                  <div className="border-t border-line px-3 py-1.5 text-[11px] text-accent">
-                    <Star size={11} className="-mt-0.5 mr-1 inline" /> Room cover
-                  </div>
-                ) : null
-              }
-              menu={[
-                { label: 'Edit details & links', icon: Pencil, onSelect: () => setEditing(r) },
-                { label: 'View full screen', icon: Expand, onSelect: () => lightbox([{ imageId: r.imageId, title: r.title }]) },
-                { label: 'Set as room cover', icon: Star, onSelect: () => setRoomCover(room.id, r.id).then(() => toast.success('Cover updated')) },
-                {
-                  label: 'Download original',
-                  icon: Download,
-                  onSelect: async () => {
-                    const o = await getOriginalBlob(r.imageId);
-                    if (o) downloadBlob(o.blob, o.name);
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+          {list.map((r, i) => {
+            const isImage = files?.get(r.imageId)?.kind === 'image';
+            return (
+              <ReferenceCard
+                key={r.id}
+                reference={r}
+                onOpen={() => openRef(list, i)}
+                onEdit={() => setEditing(r)}
+                footer={
+                  room.coverReferenceId === r.id ? (
+                    <div className="border-t border-line px-3 py-1.5 text-[11px] text-accent">
+                      <Star size={11} className="-mt-0.5 me-1 inline" /> {P.roomCover}
+                    </div>
+                  ) : null
+                }
+                menu={[
+                  { label: P.editDetails, icon: Pencil, onSelect: () => setEditing(r) },
+                  { label: P.viewFull, icon: Expand, onSelect: () => openRef([r]) },
+                  ...(isImage ? [{ label: P.setCover, icon: Star, onSelect: () => void setRoomCover(room.id, r.id).then(() => toast.success(P.coverUpdated)) }] : []),
+                  {
+                    label: P.download,
+                    icon: Download,
+                    onSelect: async () => {
+                      const o = await getOriginalBlob(r.imageId);
+                      if (o) downloadBlob(o.blob, o.name);
+                    },
                   },
-                },
-                'separator',
-                { label: 'Remove from this room', icon: Link2Off, onSelect: () => removeFromRoom(r) },
-                { label: 'Delete image', icon: Trash2, danger: true, onSelect: () => remove(r) },
-              ]}
-            />
-          ))}
+                  'separator',
+                  { label: P.removeFromRoom, icon: Link2Off, onSelect: () => removeFromRoom(r) },
+                  { label: P.delete, icon: Trash2, danger: true, onSelect: () => remove(r) },
+                ]}
+              />
+            );
+          })}
         </div>
       )}
       <ReferenceEditor reference={editing} open={!!editing} onOpenChange={(o) => !o && setEditing(null)} />

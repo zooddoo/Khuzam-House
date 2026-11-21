@@ -9,11 +9,13 @@ export function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** File name safe for every OS, keeping Arabic and other letters. */
 export function safeFilename(s: string): string {
   return (
     s
-      .normalize('NFKD')
-      .replace(/[^\w\s.-]+/g, '')
+      .normalize('NFC')
+      .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+      .replace(/[^\p{L}\p{N}\s._-]+/gu, '')
       .trim()
       .replace(/\s+/g, '-')
       .toLowerCase()

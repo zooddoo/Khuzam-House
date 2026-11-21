@@ -2,6 +2,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { Button } from './Button';
 import { Checkbox, Input } from './Form';
+import { useT } from '@/i18n';
 
 export interface ConfirmOptions {
   title: string;
@@ -24,6 +25,7 @@ type ConfirmFn = (o: ConfirmOptions) => Promise<ConfirmResult>;
 const ConfirmContext = createContext<ConfirmFn | null>(null);
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const t = useT();
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const [checked, setChecked] = useState(false);
   const [typed, setTyped] = useState('');
@@ -64,18 +66,16 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             )}
             {opts?.typeToConfirm && (
               <div className="mt-4">
-                <label className="mb-1.5 block text-[12px] text-ink-2">
-                  Type <strong className="font-semibold text-ink">{opts.typeToConfirm}</strong> to confirm
-                </label>
-                <Input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Confirmation word" />
+                <label className="mb-1.5 block text-[12px] text-ink-2">{t.ui.typeToConfirm(opts.typeToConfirm)}</label>
+                <Input autoFocus dir="ltr" value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={t.ui.confirmationWord} />
               </div>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <AlertDialog.Cancel asChild>
-                <Button variant="ghost">{opts?.cancelLabel ?? 'Cancel'}</Button>
+                <Button variant="ghost">{opts?.cancelLabel ?? t.common.cancel}</Button>
               </AlertDialog.Cancel>
               <Button variant={opts?.tone === 'danger' ? 'danger' : 'primary'} disabled={blocked} onClick={() => finish(true)} autoFocus={!opts?.typeToConfirm}>
-                {opts?.confirmLabel ?? 'Confirm'}
+                {opts?.confirmLabel ?? t.common.confirm}
               </Button>
             </div>
           </AlertDialog.Content>

@@ -15,3 +15,8 @@ export function newId(prefix = ''): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/** "Name (copy)" in the script of the name itself. */
+export function copyName(name: string): string {
+  return /[\u0600-\u06FF]/.test(name) ? `${name} (نسخة)` : `${name} (copy)`;
+}

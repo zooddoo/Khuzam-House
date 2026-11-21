@@ -32,8 +32,12 @@ export interface Measure {
 
 export interface Project {
   id: 'project';
+  /** English name (used in AI prompts). */
   name: string;
+  /** Arabic name, shown in the Arabic interface. */
+  nameAr?: string;
   location: string;
+  locationAr?: string;
   description: string;
   coverReferenceId: ID | null;
   createdAt: ISODate;
@@ -51,6 +55,7 @@ export interface FloorPlanCalibration {
 export interface Floor {
   id: ID;
   name: string;
+  nameAr?: string;
   order: number;
   /** Uploaded architectural plan used as the basis, if any. */
   planReferenceId: ID | null;
@@ -262,7 +267,10 @@ export interface DesignDirection extends DesignDirectionFields {
 
 export interface Room {
   id: ID;
+  /** English name — used in AI prompts. */
   name: string;
+  /** Arabic name — shown first in the Arabic interface. */
+  nameAr?: string;
   type: RoomType;
   floorId: ID | null;
   status: RoomStatus;
@@ -277,6 +285,7 @@ export interface Room {
   direction: DesignDirection;
   /** Earlier conceptual idea carried over from the brief. Never applied automatically. */
   preliminaryConcept: string;
+  preliminaryConceptAr?: string;
   /** User-listed things that must not change in any design. */
   fixedConstraints: string[];
   /** Opt-in: include house-wide guidelines in this room's generations. */
@@ -324,29 +333,62 @@ export interface Requirement {
 /* Images & references                                                  */
 /* ------------------------------------------------------------------ */
 
-export interface StoredImage {
+export type FileKind = 'image' | 'pdf' | 'video' | 'audio' | 'document' | 'spreadsheet' | 'presentation' | 'drawing' | 'archive' | 'text' | 'other';
+
+/**
+ * A stored file of any type (photo, PDF, Word, Excel, video, DWG…).
+ * This metadata is synced to the cloud; the bytes live in Supabase Storage
+ * (original quality) and are cached on the device in `blobs`.
+ */
+export interface StoredFile {
   id: ID;
-  /** The original file, byte-for-byte. Never modified. */
-  blob: Blob;
-  /** Browser-displayable copy for formats browsers can't render (e.g. HEIC). */
-  display: Blob | null;
-  /** Small preview for galleries. */
-  thumb: Blob | null;
   name: string;
+  /** MIME type ('' when the browser does not know it). */
   type: string;
   size: number;
+  kind: FileKind;
+  /** Lower-case extension without the dot ('' if none). */
+  ext: string;
+  /** Pixel size for images (0 when not an image). */
   width: number;
   height: number;
+  /** A browser-displayable copy exists (e.g. JPEG for a HEIC photo). */
+  hasDisplay: boolean;
+  /** A small preview exists (images, first page of PDFs, video poster). */
+  hasThumb: boolean;
+  sha256: string | null;
   createdAt: ISODate;
 }
 
-export type ReferenceKind = 'site-photo' | 'plan' | 'inspiration' | 'furniture' | 'material' | 'generated' | 'screenshot' | 'other';
+/** @deprecated kept for older code paths: every image is a StoredFile. */
+export type StoredImage = StoredFile;
+
+export type FileVariant = 'original' | 'display' | 'thumb';
+
+/** Bytes of a file variant cached on this device (never synced as a record). */
+export interface FileBlob {
+  /** `${fileId}:${variant}` */
+  key: string;
+  fileId: ID;
+  variant: FileVariant;
+  blob: Blob;
+  /** 1 while the bytes still have to be uploaded to cloud storage. */
+  pending: 0 | 1;
+  cachedAt: ISODate;
+}
+
+export type ReferenceKind = 'site-photo' | 'plan' | 'inspiration' | 'furniture' | 'material' | 'generated' | 'screenshot' | 'document' | 'other';
 
 export type ImageIntent = 'want' | 'avoid' | 'neutral';
 export type ImageAspect = 'general' | 'furniture' | 'layout' | 'style' | 'material' | 'color' | 'detail';
 
+/**
+ * An item in the References Library: an image or any other attached file
+ * with its caption, notes, tags and links to the things it belongs to.
+ */
 export interface Reference {
   id: ID;
+  /** The StoredFile id (any file type — the name is historical). */
   imageId: ID;
   kind: ReferenceKind;
   /** Caption */
@@ -369,6 +411,8 @@ export interface Reference {
   /** Rooms whose design direction uses this image. */
   directionRoomIds: ID[];
   libraryItemIds: ID[];
+  /** Other references this file is attached to (e.g. a spec sheet attached to an inspiration photo). */
+  referenceIds: ID[];
   createdAt: ISODate;
   updatedAt: ISODate;
 }
@@ -528,7 +572,9 @@ export interface LibraryItem {
 export interface DirectionPreset {
   id: ID;
   name: string;
+  nameAr?: string;
   summary: string;
+  summaryAr?: string;
   builtIn: boolean;
   fields: DesignDirectionFields;
   order: number;
@@ -613,6 +659,57 @@ export interface AppSettings {
   imageProvider: ImageProviderSettings;
   textProvider: TextProviderSettings;
   lastBackupAt: ISODate | null;
+  /** Largest file accepted for upload (MB). Supabase's free plan allows 50 MB. */
+  maxUploadMb: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Translations, recently deleted, sync bookkeeping                     */
+/* ------------------------------------------------------------------ */
+
+/** English wording for a piece of Arabic text, reused wherever that text appears in a prompt. */
+export interface Translation {
+  /** Hash of the normalised source text. */
+  id: string;
+  source: string;
+  en: string;
+  method: 'manual' | 'auto';
+  updatedAt: ISODate;
+}
+
+export type TrashKind = 'room' | 'requirement' | 'reference' | 'version' | 'library' | 'comparison' | 'preset' | 'floor' | 'task';
+
+/** A deleted item (with everything deleted together with it), restorable from Recently Deleted. */
+export interface TrashEntry {
+  id: ID;
+  kind: TrashKind;
+  label: string;
+  labelAr?: string;
+  roomId: ID | null;
+  deletedAt: ISODate;
+  /** Whole records removed by the deletion, restored as they were. */
+  records: { table: string; record: Record<string, unknown> }[];
+  /** Links removed from records that were kept (re-added on restore). */
+  unlinks: { table: string; id: ID; field: string; values: string[] }[];
+  /** Single-value fields changed on records that were kept (set back on restore if unchanged since). */
+  cleared: { table: string; id: ID; field: string; value: unknown; setTo?: unknown }[];
+  /** Files only used by this entry (deleted for good when it is purged). */
+  fileIds: ID[];
+}
+
+export interface OutboxEntry {
+  /** `${table}|${key}` */
+  id: string;
+  table: string;
+  key: string;
+  at: number;
+  /** Changes every time the record changes, so a finished upload never hides a newer edit. */
+  rev: string;
+}
+
+export interface MetaEntry {
+  key: string;
+  value: unknown;
 }
 
 export interface RestorePoint {
@@ -620,6 +717,8 @@ export interface RestorePoint {
   createdAt: ISODate;
   reason: string;
   size: number;
+  /** 'data' = JSON snapshot of all records (files stay in cloud storage); 'zip' = older full backup. */
+  format?: 'data' | 'zip';
   blob: Blob;
   summary: BackupSummary;
 }

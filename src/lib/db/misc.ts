@@ -1,6 +1,8 @@
 import { db } from './db';
-import { collectGarbage, hasNoLinks } from './gc';
 import { originalPreset } from './presets';
+import { moveToTrash } from './trash';
+import { trashOrphanedReferences } from './rooms';
+import { msgs } from '../../i18n/messages';
 import { newId, nowIso } from '../ids';
 import type { Comparison, DesignDirectionFields, DesignTask, DirectionPreset, Floor, ID, LibraryItem, Project } from '../types';
 
@@ -12,12 +14,13 @@ export async function updateProject(patch: Partial<Project>): Promise<void> {
 
 /* Floors ------------------------------------------------------------- */
 
-export async function addFloor(name: string): Promise<Floor> {
+export async function addFloor(name: string, nameAr?: string): Promise<Floor> {
   const last = await db.floors.orderBy('order').last();
   const now = nowIso();
   const floor: Floor = {
     id: newId('floor'),
-    name: name.trim() || 'Floor',
+    name: name.trim() || nameAr?.trim() || 'Floor',
+    nameAr: nameAr?.trim() || undefined,
     order: (last?.order ?? -1) + 1,
     planReferenceId: null,
     planCalibration: null,
@@ -34,10 +37,12 @@ export async function updateFloor(id: ID, patch: Partial<Floor>): Promise<void> 
   await db.floors.update(id, { ...patch, updatedAt: nowIso() });
 }
 
+/** Move a floor to Recently Deleted. Its rooms keep their floor and placement and show as "no floor" until it is restored. */
 export async function deleteFloor(id: ID): Promise<void> {
-  await db.transaction('rw', [db.floors, db.rooms], async () => {
-    await db.floors.delete(id);
-    await db.rooms.where('floorId').equals(id).modify({ floorId: null, planPlacement: null });
+  const floor = await db.floors.get(id);
+  if (!floor) return;
+  await moveToTrash('floor', { en: floor.name, ar: floor.nameAr || floor.name }, null, async (rec) => {
+    await rec.remove('floors', id);
   });
 }
 
@@ -60,7 +65,11 @@ export async function toggleTask(id: ID, done: boolean): Promise<void> {
 }
 
 export async function deleteTask(id: ID): Promise<void> {
-  await db.tasks.delete(id);
+  const task = await db.tasks.get(id);
+  if (!task) return;
+  await moveToTrash('task', { en: task.title, ar: task.title }, task.roomId, async (rec) => {
+    await rec.remove('tasks', id);
+  });
 }
 
 /* Comparisons -------------------------------------------------------- */
@@ -81,17 +90,21 @@ export async function saveComparison(c: Omit<Comparison, 'id' | 'createdAt' | 'u
 }
 
 export async function deleteComparison(id: ID): Promise<void> {
-  await db.comparisons.delete(id);
+  const c = await db.comparisons.get(id);
+  if (!c) return;
+  await moveToTrash('comparison', { en: c.title || msgs('en').enums.trashKind.comparison, ar: c.title || msgs('ar').enums.trashKind.comparison }, c.roomId, async (rec) => {
+    await rec.remove('comparisons', id);
+  });
 }
 
 /* Presets ------------------------------------------------------------ */
 
-export async function savePreset(p: { id?: ID; name: string; summary: string; fields: DesignDirectionFields }): Promise<DirectionPreset> {
+export async function savePreset(p: { id?: ID; name: string; nameAr?: string; summary: string; summaryAr?: string; fields: DesignDirectionFields }): Promise<DirectionPreset> {
   const now = nowIso();
   if (p.id) {
     const existing = await db.presets.get(p.id);
     if (existing) {
-      const next = { ...existing, name: p.name, summary: p.summary, fields: structuredClone(p.fields), updatedAt: now };
+      const next = { ...existing, name: p.name, nameAr: p.nameAr, summary: p.summary, summaryAr: p.summaryAr, fields: structuredClone(p.fields), updatedAt: now };
       await db.presets.put(next);
       return next;
     }
@@ -100,7 +113,9 @@ export async function savePreset(p: { id?: ID; name: string; summary: string; fi
   const created: DirectionPreset = {
     id: newId('preset'),
     name: p.name,
+    nameAr: p.nameAr,
     summary: p.summary,
+    summaryAr: p.summaryAr,
     builtIn: false,
     fields: structuredClone(p.fields),
     order: (last?.order ?? -1) + 1,
@@ -111,13 +126,24 @@ export async function savePreset(p: { id?: ID; name: string; summary: string; fi
 }
 
 export async function deletePreset(id: ID): Promise<void> {
-  await db.presets.delete(id);
+  const p = await db.presets.get(id);
+  if (!p) return;
+  await moveToTrash('preset', { en: p.name, ar: p.nameAr || p.name }, null, async (rec) => {
+    await rec.remove('presets', id);
+  });
 }
 
 export async function resetPreset(id: ID): Promise<boolean> {
   const orig = originalPreset(id);
   if (!orig) return false;
-  await db.presets.update(id, { name: orig.name, summary: orig.summary, fields: structuredClone(orig.fields), updatedAt: nowIso() });
+  await db.presets.update(id, {
+    name: orig.name,
+    nameAr: orig.nameAr,
+    summary: orig.summary,
+    summaryAr: orig.summaryAr,
+    fields: structuredClone(orig.fields),
+    updatedAt: nowIso(),
+  });
   return true;
 }
 
@@ -138,19 +164,12 @@ export async function saveLibraryItem(item: Omit<LibraryItem, 'id' | 'createdAt'
   return created;
 }
 
+/** Move a material / furniture item to Recently Deleted. Furniture placed from it keeps its dimensions. */
 export async function deleteLibraryItem(id: ID): Promise<void> {
-  await db.transaction('rw', [db.library, db.references, db.rooms], async () => {
-    await db.library.delete(id);
-    const refs = await db.references.where('libraryItemIds').equals(id).toArray();
-    for (const r of refs) {
-      const next = { ...r, libraryItemIds: r.libraryItemIds.filter((x) => x !== id) };
-      if (hasNoLinks(next)) await db.references.delete(r.id);
-      else await db.references.put(next);
-    }
-    // Furniture placed from this item keeps its dimensions; only the link is cleared.
-    await db.rooms.toCollection().modify((room) => {
-      for (const f of room.layout.items) if (f.libraryItemId === id) f.libraryItemId = null;
-    });
+  const item = await db.library.get(id);
+  if (!item) return;
+  await moveToTrash('library', { en: item.name, ar: item.name }, item.roomIds[0] ?? null, async (rec) => {
+    await rec.remove('library', id);
+    await trashOrphanedReferences(rec, { library: new Set([id]) });
   });
-  await collectGarbage();
 }

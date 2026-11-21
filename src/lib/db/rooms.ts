@@ -1,18 +1,19 @@
 import { produce } from 'immer';
 import { db } from './db';
 import { createRoomRecord } from './factories';
-import { collectGarbage, hasNoLinks } from './gc';
+import { moveToTrash, type TrashRecorder } from './trash';
 import { syncWalls } from '../geometry/room';
 import { newId, nowIso } from '../ids';
 import type { ID, Room, RoomStatus, RoomType } from '../types';
 import { getSettings } from './settings';
 
-export async function addRoom(input: { name: string; type: RoomType; floorId?: ID | null; description?: string }): Promise<Room> {
+export async function addRoom(input: { name: string; nameAr?: string; type: RoomType; floorId?: ID | null; description?: string }): Promise<Room> {
   const settings = await getSettings();
   const last = await db.rooms.orderBy('order').last();
   const room = createRoomRecord(
     {
       name: input.name.trim(),
+      nameAr: input.nameAr?.trim() || undefined,
       type: input.type,
       floorId: input.floorId ?? null,
       description: input.description ?? '',
@@ -83,70 +84,71 @@ export async function roomDeletionImpact(roomId: ID): Promise<RoomDeletionImpact
 }
 
 /**
- * Delete a room with its requirements and design versions. References are
- * unlinked; images used only by this room are deleted when `deleteImages` is true.
+ * References that belong only to deleted things go to Recently Deleted with
+ * them. References still used elsewhere are kept untouched (their link to
+ * the deleted item simply shows as missing until it is restored).
  */
-export async function deleteRoom(roomId: ID, opts: { deleteImages: boolean }): Promise<void> {
-  await db.transaction('rw', [db.rooms, db.requirements, db.versions, db.references, db.library, db.tasks, db.comparisons, db.project, db.images], async () => {
-    const room = await db.rooms.get(roomId);
-    if (!room) return;
+export async function trashOrphanedReferences(
+  rec: TrashRecorder,
+  gone: { rooms?: Set<ID>; requirements?: Set<ID>; versions?: Set<ID>; elements?: Set<ID>; library?: Set<ID>; references?: Set<ID> },
+): Promise<void> {
+  const rooms = gone.rooms ?? new Set<ID>();
+  const reqs = gone.requirements ?? new Set<ID>();
+  const vers = gone.versions ?? new Set<ID>();
+  const els = gone.elements ?? new Set<ID>();
+  const libs = gone.library ?? new Set<ID>();
+  const refsGone = gone.references ?? new Set<ID>();
+  const all = await db.references.toArray();
+  for (const r of all) {
+    if (rec.has('references', r.id)) continue;
+    const touched =
+      r.roomIds.some((x) => rooms.has(x)) ||
+      r.directionRoomIds.some((x) => rooms.has(x)) ||
+      r.requirementIds.some((x) => reqs.has(x)) ||
+      r.versionIds.some((x) => vers.has(x)) ||
+      r.wallKeys.some((k) => rooms.has(k.split(':')[0])) ||
+      r.elementIds.some((x) => els.has(x)) ||
+      r.libraryItemIds.some((x) => libs.has(x)) ||
+      (r.referenceIds ?? []).some((x) => refsGone.has(x));
+    if (!touched) continue;
+    const live =
+      r.roomIds.some((x) => !rooms.has(x)) ||
+      r.directionRoomIds.some((x) => !rooms.has(x)) ||
+      r.requirementIds.some((x) => !reqs.has(x)) ||
+      r.versionIds.some((x) => !vers.has(x)) ||
+      r.wallKeys.some((k) => !rooms.has(k.split(':')[0])) ||
+      r.elementIds.some((x) => !els.has(x)) ||
+      r.libraryItemIds.some((x) => !libs.has(x)) ||
+      (r.referenceIds ?? []).some((x) => !refsGone.has(x));
+    if (!live) await rec.remove('references', r.id);
+  }
+}
+
+/**
+ * Move a room to Recently Deleted together with its requirements, design
+ * versions, comparisons, tasks and the attachments that belong only to it.
+ * Everything comes back with "Restore".
+ */
+export async function deleteRoom(roomId: ID): Promise<void> {
+  const room = await db.rooms.get(roomId);
+  if (!room) return;
+  await moveToTrash('room', { en: room.name || room.nameAr || 'Room', ar: room.nameAr || room.name }, roomId, async (rec) => {
     const reqIds = (await db.requirements.where('roomId').equals(roomId).primaryKeys()) as ID[];
     const versionIds = (await db.versions.where('roomId').equals(roomId).primaryKeys()) as ID[];
-    const elementIds = new Set(room.elements.map((e) => e.id));
-    const reqSet = new Set(reqIds);
-    const verSet = new Set(versionIds);
-
-    const refs = await db.references.toArray();
-    const deletedRefs = new Set<ID>();
-    for (const r of refs) {
-      const touched =
-        r.roomIds.includes(roomId) ||
-        r.directionRoomIds.includes(roomId) ||
-        r.requirementIds.some((x) => reqSet.has(x)) ||
-        r.versionIds.some((x) => verSet.has(x)) ||
-        r.wallKeys.some((k) => k.startsWith(`${roomId}:`)) ||
-        r.elementIds.some((x) => elementIds.has(x));
-      if (!touched) continue;
-      const next = {
-        ...r,
-        roomIds: r.roomIds.filter((x) => x !== roomId),
-        directionRoomIds: r.directionRoomIds.filter((x) => x !== roomId),
-        requirementIds: r.requirementIds.filter((x) => !reqSet.has(x)),
-        versionIds: r.versionIds.filter((x) => !verSet.has(x)),
-        wallKeys: r.wallKeys.filter((k) => !k.startsWith(`${roomId}:`)),
-        elementIds: r.elementIds.filter((x) => !elementIds.has(x)),
-        updatedAt: nowIso(),
-      };
-      const remove = (opts.deleteImages && hasNoLinks(next)) || (r.kind === 'generated' && next.versionIds.length === 0);
-      if (remove) {
-        deletedRefs.add(r.id);
-        await db.references.delete(r.id);
-      } else {
-        await db.references.put(next);
-      }
-    }
-
-    await db.requirements.bulkDelete(reqIds);
-    await db.versions.bulkDelete(versionIds);
-    await db.rooms.delete(roomId);
-
-    await db.library
-      .where('roomIds')
-      .equals(roomId)
-      .modify((item) => {
-        item.roomIds = item.roomIds.filter((x) => x !== roomId);
-      });
-    await db.tasks.where('roomId').equals(roomId).modify({ roomId: null });
-    await db.comparisons.where('roomId').equals(roomId).delete();
-    await db.comparisons.toCollection().modify((c) => {
-      c.items = c.items.filter((it) => (it.type === 'version' ? !verSet.has(it.id) : !deletedRefs.has(it.id)));
+    const comparisonIds = (await db.comparisons.where('roomId').equals(roomId).primaryKeys()) as ID[];
+    const taskIds = (await db.tasks.where('roomId').equals(roomId).primaryKeys()) as ID[];
+    await rec.remove('rooms', roomId);
+    for (const id of reqIds) await rec.remove('requirements', id);
+    for (const id of versionIds) await rec.remove('versions', id);
+    for (const id of comparisonIds) await rec.remove('comparisons', id);
+    for (const id of taskIds) await rec.remove('tasks', id);
+    await trashOrphanedReferences(rec, {
+      rooms: new Set([roomId]),
+      requirements: new Set(reqIds),
+      versions: new Set(versionIds),
+      elements: new Set(room.elements.map((e) => e.id)),
     });
-    const project = await db.project.get('project');
-    if (project?.coverReferenceId && deletedRefs.has(project.coverReferenceId)) {
-      await db.project.update('project', { coverReferenceId: null });
-    }
   });
-  await collectGarbage();
 }
 
 /** Copy a room's spatial data, requirements and design direction. Versions are not copied. */
@@ -160,6 +162,7 @@ export async function duplicateRoom(roomId: ID): Promise<Room> {
     const copy: Room = structuredClone(src);
     copy.id = newId('room');
     copy.name = `${src.name} (copy)`;
+    if (src.nameAr) copy.nameAr = `${src.nameAr} (نسخة)`;
     copy.order = (last?.order ?? 0) + 1;
     copy.approvedVersionId = null;
     copy.planPlacement = null;

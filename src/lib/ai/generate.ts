@@ -4,6 +4,8 @@ import { createVersion } from '../db/versions';
 import { snapshotRequirements, snapshotRoom } from '../db/snapshots';
 import { updateRoom } from '../db/rooms';
 import { updateSettings } from '../db/settings';
+import { getDisplayBlob } from '../files/repo';
+import { tr } from '../../i18n/messages';
 import { prepareForUpload } from '../images/ingest';
 import { renderPlanPng } from '../../components/plan/exportPlan';
 import type { DesignVersion, GenerationSettings, ImageProviderSettings, Reference, Room, VersionInputImage } from '../types';
@@ -62,10 +64,9 @@ export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
       continue;
     }
     if (!p.imageId) continue;
-    const stored = await db.images.get(p.imageId);
-    if (!stored)
-      throw new ProviderError(`An image is missing from storage (${p.caption || p.label}).`, { hint: 'Remove it from the selection and try again.' });
-    const blob = await prepareForUpload(stored, maxEdge, 'image/jpeg');
+    const source = await getDisplayBlob(p.imageId);
+    if (!source) throw new ProviderError(tr().studio.imageMissing(p.caption || p.label), { hint: tr().studio.imageMissingHint });
+    const blob = await prepareForUpload(source, maxEdge, 'image/jpeg');
     images.push({ blob, mime: 'image/jpeg', label: p.label, role: p.role });
   }
 

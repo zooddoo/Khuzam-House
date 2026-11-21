@@ -5,7 +5,12 @@ import type { ArchElement, ElementType, Reference, Room } from '@/lib/types';
 import { computeRoomShape, elementIssues, findSegment, wallStartLabel } from '@/lib/geometry/room';
 import { certaintyMeta, ELEMENT_TYPES, elementTypeMeta } from '@/lib/labels';
 import { formatLength } from '@/lib/units';
-import { newId } from '@/lib/ids';
+import { copyName, newId } from '@/lib/ids';
+import { wallTitle } from '@/lib/geometry/names';
+import { subtypeLabel } from '@/lib/labels';
+import { tr } from '@/i18n/messages';
+import { useI18n } from '@/i18n';
+import { elementDisplayLabel } from '@/components/images/references';
 import { updateRoom } from '@/lib/db/rooms';
 import { PlanPreview } from '@/components/plan/PlanPreview';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -18,18 +23,29 @@ import { ElementDialog } from '../architecture/ElementDialog';
 import { FixedConstraints } from '../architecture/FixedConstraints';
 
 export function elementSummary(el: ArchElement, room: Room): string {
+  const a = tr().arch;
   const unit = room.displayUnit;
   const bits: string[] = [];
   if (el.width !== null || el.height !== null)
     bits.push(`${formatLength(el.width, unit, { unknown: '?' })} × ${formatLength(el.height, unit, { unknown: '?' })}`);
-  if (el.elevation !== null && el.type !== 'door') bits.push(`${el.type === 'window' ? 'sill' : 'at'} ${formatLength(el.elevation, unit)}`);
-  if (el.placement === 'wall') bits.push(el.offset === null ? 'position unknown' : `${formatLength(el.offset, unit)} from start`);
+  if (el.elevation !== null && el.type !== 'door') bits.push(el.type === 'window' ? a.sill(formatLength(el.elevation, unit)) : a.at(formatLength(el.elevation, unit)));
+  if (el.placement === 'wall') bits.push(el.offset === null ? a.positionUnknown : a.fromStart(formatLength(el.offset, unit)));
   if (el.type === 'door' && el.door)
-    bits.push(el.door.swing === 'in' ? `opens in · ${el.door.hinge} hinge` : el.door.swing === 'out' ? 'opens out' : el.door.swing);
+    bits.push(
+      el.door.swing === 'in'
+        ? a.opensIn(el.door.hinge === 'left' ? a.hingeLeft : a.hingeRight)
+        : el.door.swing === 'out'
+          ? a.opensOut
+          : el.door.swing === 'sliding'
+            ? a.sliding
+            : a.opening,
+    );
   return bits.join(' · ');
 }
 
 export function ArchitectureTab({ room, references }: { room: Room; references: Reference[] }) {
+  const { t, lang } = useI18n();
+  const A = t.arch;
   const shape = useMemo(() => computeRoomShape(room), [room]);
   const issues = useMemo(() => elementIssues(room, shape), [room, shape]);
   const confirm = useConfirm();
@@ -40,32 +56,32 @@ export function ArchitectureTab({ room, references }: { room: Room; references: 
   const groups = useMemo(() => {
     const byWall = shape.segments.map((s) => ({
       key: s.id,
-      title: `${s.name} wall`,
-      subtitle: s.start ? `Positions measured from its ${wallStartLabel(s)}` : '',
+      title: wallTitle(s, lang),
+      subtitle: s.start ? A.measuredFrom(wallStartLabel(s)) : '',
       items: room.elements.filter((e) => e.placement === 'wall' && e.wallId === s.id),
     }));
     const free = room.elements.filter((e) => e.placement === 'free');
     const orphan = room.elements.filter((e) => e.placement === 'wall' && !findSegment(shape, e.wallId));
     return [
       ...byWall,
-      { key: 'free', title: 'Free-standing & ceiling', subtitle: '', items: free },
-      { key: 'orphan', title: 'Not on a current wall', subtitle: 'Reassign these elements to a wall', items: orphan },
+      { key: 'free', title: A.free, subtitle: '', items: free },
+      { key: 'orphan', title: A.orphan, subtitle: A.orphanHint, items: orphan },
     ].filter((g) => g.items.length);
-  }, [room, shape]);
+  }, [room, shape, A, lang]);
 
   const remove = async (el: ArchElement) => {
     const r = await confirm({
-      title: `Delete ${el.label}?`,
+      title: A.deleteTitle(elementDisplayLabel(el, lang)),
       tone: 'danger',
-      confirmLabel: 'Delete',
-      description: 'It will no longer be preserved or shown in designs and plans.',
+      confirmLabel: t.common.delete,
+      description: A.deleteBody,
     });
     if (!r.confirmed) return;
     await updateRoom(room.id, (d) => void (d.elements = d.elements.filter((e) => e.id !== el.id)));
-    toast.success('Element deleted');
+    toast.success(A.deleted);
   };
   const duplicate = async (el: ArchElement) => {
-    await updateRoom(room.id, (d) => void d.elements.push({ ...structuredClone(el), id: newId('el'), label: `${el.label} (copy)` }));
+    await updateRoom(room.id, (d) => void d.elements.push({ ...structuredClone(el), id: newId('el'), label: copyName(el.label) }));
   };
 
   const counts = {
@@ -75,29 +91,26 @@ export function ArchitectureTab({ room, references }: { room: Room; references: 
   };
 
   return (
-    <div className="grid gap-10 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-10">
       <div className="flex flex-col gap-7">
         <div>
-          <h2 className="display text-[28px]">Architecture</h2>
-          <p className="mt-1 max-w-[620px] text-[12.5px] leading-relaxed text-ink-3">
-            Doors, windows, AC units, columns and other fixed elements. Confirmed elements are preserved in every design; estimated or unknown ones are never
-            presented to the AI as facts.
-          </p>
+          <h2 className="display text-[28px]">{A.title}</h2>
+          <p className="mt-1 max-w-[620px] text-[12.5px] leading-relaxed text-ink-3">{A.lead}</p>
         </div>
         <div>
-          <div className="eyebrow mb-2">Add</div>
+          <div className="eyebrow mb-2">{A.add}</div>
           <div className="flex flex-wrap gap-1.5">
-            {ELEMENT_TYPES.map((t) => (
-              <Chip key={t.value} onClick={() => setCreating(t.value)}>
-                <Plus size={12} /> {t.label}
+            {ELEMENT_TYPES.map((et) => (
+              <Chip key={et.value} onClick={() => setCreating(et.value)}>
+                <Plus size={12} /> {et.label}
               </Chip>
             ))}
           </div>
         </div>
 
         {room.elements.length === 0 ? (
-          <EmptyState icon={Box} title="No elements recorded">
-            Record the doors, windows and AC units first — they matter most for keeping designs true to the real room.
+          <EmptyState icon={Box} title={A.emptyTitle}>
+            {A.emptyBody}
           </EmptyState>
         ) : (
           groups.map((g) => (
@@ -117,27 +130,23 @@ export function ArchitectureTab({ room, references }: { room: Room; references: 
                         selected === el.id ? 'border-line-strong' : 'border-line',
                       )}
                     >
-                      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEditing(el)}>
-                        <div className="flex items-center gap-2 text-[13.5px] text-ink">
-                          {el.label || elementTypeMeta(el.type).label}
-                          {el.subtype && el.subtype !== el.label && <span className="text-[12px] text-ink-3">{el.subtype}</span>}
-                          {el.preserve && el.status === 'confirmed' && <Lock size={12} className="text-ok" aria-label="Preserved in designs" />}
+                      <button type="button" className="min-w-0 flex-1 text-start" onClick={() => setEditing(el)}>
+                        <div className="flex flex-wrap items-center gap-x-2 text-[13.5px] text-ink">
+                          <span dir="auto">{el.label ? elementDisplayLabel(el, lang) : elementTypeMeta(el.type).label}</span>
+                          {el.subtype && el.subtype !== el.label && <span className="text-[12px] text-ink-3">{subtypeLabel(el.subtype)}</span>}
+                          {el.preserve && el.status === 'confirmed' && <Lock size={12} className="text-ok" aria-label={A.preserved} />}
                         </div>
-                        <div className="mt-0.5 truncate text-[12px] text-ink-3 tabular">{elementSummary(el, room) || 'Size and position unknown'}</div>
+                        <div className="mt-0.5 truncate text-[12px] text-ink-3 tabular">{elementSummary(el, room) || A.unknownSize}</div>
                       </button>
-                      {photos > 0 && (
-                        <span className="text-[11px] text-ink-3">
-                          {photos} photo{photos > 1 ? 's' : ''}
-                        </span>
-                      )}
+                      {photos > 0 && <span className="hidden text-[11px] text-ink-3 sm:inline">{A.files(photos)}</span>}
                       <StatusLabel tone={cm.tone}>{cm.label}</StatusLabel>
                       <Menu
-                        trigger={<IconButton icon={MoreHorizontal} label="Element actions" />}
+                        trigger={<IconButton icon={MoreHorizontal} label={A.actions} />}
                         items={[
-                          { label: 'Edit', icon: Pencil, onSelect: () => setEditing(el) },
-                          { label: 'Duplicate', icon: Copy, onSelect: () => duplicate(el) },
+                          { label: t.common.edit, icon: Pencil, onSelect: () => setEditing(el) },
+                          { label: t.common.duplicate, icon: Copy, onSelect: () => duplicate(el) },
                           'separator',
-                          { label: 'Delete', icon: Trash2, danger: true, onSelect: () => remove(el) },
+                          { label: t.common.deleteEllipsis, icon: Trash2, danger: true, onSelect: () => remove(el) },
                         ]}
                       />
                     </li>
@@ -151,26 +160,20 @@ export function ArchitectureTab({ room, references }: { room: Room; references: 
       </div>
 
       <aside className="flex flex-col gap-4 xl:sticky xl:top-4 xl:self-start">
-        <PlanPreview room={room} height={380} selectedElementId={selected} onElementClick={(el) => setEditing(el)} showFurniture={false} />
+        <PlanPreview room={room} height={320} selectedElementId={selected} onElementClick={(el) => setEditing(el)} showFurniture={false} />
         <div className="flex flex-wrap gap-4 text-[12px] text-ink-3">
-          <span>
-            <strong className="text-ink">{counts.confirmed}</strong> confirmed
-          </span>
-          <span>
-            <strong className="text-ink">{counts.estimated}</strong> estimated (dashed on plan)
-          </span>
-          <span>
-            <strong className="text-ink">{counts.unknown}</strong> unknown (dotted)
-          </span>
+          <span>{A.confirmedCount(counts.confirmed)}</span>
+          <span>{A.estimatedCount(counts.estimated)}</span>
+          <span>{A.unknownCount(counts.unknown)}</span>
         </div>
         {issues.map((i, k) => (
           <Callout key={k} tone={i.level === 'error' ? 'danger' : 'warn'}>
             {i.message}
           </Callout>
         ))}
-        {!shape.drawable && <Callout tone="neutral">Elements can be recorded now; they appear on the plan once the room dimensions are known.</Callout>}
+        {!shape.drawable && <Callout tone="neutral">{A.notDrawable}</Callout>}
         <Button variant="ghost" size="sm" icon={Plus} onClick={() => setCreating('window')} className="self-start">
-          Add element
+          {A.addElement}
         </Button>
       </aside>
 

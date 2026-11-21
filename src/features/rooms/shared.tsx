@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import type { Floor, ID, Room, RoomStatus, RoomType } from '@/lib/types';
-import { ROOM_STATUSES, ROOM_TYPES, roomStatusMeta } from '@/lib/labels';
+import { ROOM_STATUSES, ROOM_TYPES, roomStatusMeta, roomTypeLabel } from '@/lib/labels';
 import { useFloors, useReference } from '@/lib/hooks/data';
 import { addRoom, deleteRoom, duplicateRoom, patchRoom, roomDeletionImpact } from '@/lib/db/rooms';
 import { computeRoomShape } from '@/lib/geometry/room';
+import { floorDisplayName, roomDisplayName } from '@/lib/names';
+import { hasArabic } from '@/i18n/arabic';
+import { useI18n } from '@/i18n';
 import { ImageThumb } from '@/components/images/ImageThumb';
 import { PlanPreview } from '@/components/plan/PlanPreview';
 import { Dialog } from '@/components/ui/Overlay';
@@ -14,7 +17,6 @@ import { Button } from '@/components/ui/Button';
 import { StatusLabel } from '@/components/ui/Display';
 import { useConfirm } from '@/components/ui/Confirm';
 import { cn } from '@/components/ui/cn';
-import { plural } from '@/lib/format';
 
 export function RoomStatusLabel({ status, className }: { status: RoomStatus; className?: string }) {
   const meta = roomStatusMeta(status);
@@ -30,14 +32,17 @@ function initials(name: string): string {
     .replace(/[&’'"]/g, ' ')
     .split(/\s+/)
     .filter(Boolean);
+  if (hasArabic(name)) return (words.find((w) => w !== 'غرفة' && w !== 'ال') ?? words[0] ?? '؟').replace(/^ال/, '').slice(0, 1);
   return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 1)).toUpperCase();
 }
 
-/** Cover image, or the room's plan, or a quiet monogram. */
+/** Cover photo, or the room's plan, or a quiet monogram. */
 export function RoomCover({ room, className }: { room: Room; className?: string }) {
+  const { lang } = useI18n();
   const cover = useReference(room.coverReferenceId);
   const drawable = useMemo(() => computeRoomShape(room).drawable, [room]);
-  if (cover) return <ImageThumb imageId={cover.imageId} className={cn('w-full', className)} alt={room.name} />;
+  const name = roomDisplayName(room, lang);
+  if (cover) return <ImageThumb imageId={cover.imageId} className={cn('w-full', className)} alt={name} />;
   if (drawable)
     return (
       <div className={cn('relative w-full overflow-hidden bg-surface', className)}>
@@ -48,26 +53,18 @@ export function RoomCover({ room, className }: { room: Room; className?: string 
     );
   return (
     <div className={cn('hairline-grid relative flex w-full items-center justify-center bg-mist/60', className)}>
-      <span className="display text-[44px] text-ink-4/80">{initials(room.name)}</span>
+      <span className="display text-[40px] text-ink-4/80">{initials(name)}</span>
     </div>
   );
 }
 
-/** Create or edit a room's basic details. */
-export function RoomFormDialog({
-  open,
-  onOpenChange,
-  room,
-  defaultFloorId,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  room?: Room | null;
-  defaultFloorId?: ID | null;
-}) {
+/** Create or edit a room's basic details (Arabic and English names). */
+export function RoomFormDialog({ open, onOpenChange, room, defaultFloorId }: { open: boolean; onOpenChange: (o: boolean) => void; room?: Room | null; defaultFloorId?: ID | null }) {
+  const { t, lang } = useI18n();
   const floors = useFloors() ?? [];
   const navigate = useNavigate();
-  const [name, setName] = useState('');
+  const [nameAr, setNameAr] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [type, setType] = useState<RoomType>('living');
   const [floorId, setFloorId] = useState<string>('');
   const [status, setStatus] = useState<RoomStatus>('not-started');
@@ -77,7 +74,8 @@ export function RoomFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName(room?.name ?? '');
+    setNameAr(room?.nameAr ?? '');
+    setNameEn(room?.name ?? '');
     setType(room?.type ?? 'living');
     setFloorId(room?.floorId ?? defaultFloorId ?? '');
     setStatus(room?.status ?? 'not-started');
@@ -86,26 +84,27 @@ export function RoomFormDialog({
   }, [open, room, defaultFloorId]);
 
   const save = async () => {
-    if (!name.trim()) {
-      setError('Give the room a name');
+    if (!nameAr.trim() && !nameEn.trim()) {
+      setError(t.roomForm.nameRequired);
       return;
     }
     setSaving(true);
     try {
       if (room) {
         await patchRoom(room.id, {
-          name: name.trim(),
+          name: nameEn.trim(),
+          nameAr: nameAr.trim() || undefined,
           type,
           floorId: floorId || null,
           status,
           description,
           ...(floorId !== (room.floorId ?? '') ? { planPlacement: null } : {}),
         });
-        toast.success('Room updated');
+        toast.success(t.roomForm.updated);
         onOpenChange(false);
       } else {
-        const created = await addRoom({ name, type, floorId: floorId || null, description });
-        toast.success(`${created.name} added`);
+        const created = await addRoom({ name: nameEn, nameAr, type, floorId: floorId || null, description });
+        toast.success(t.roomForm.added(roomDisplayName(created, lang)));
         onOpenChange(false);
         navigate(`/rooms/${created.id}/overview`);
       }
@@ -114,19 +113,30 @@ export function RoomFormDialog({
     }
   };
 
+  const arField = (
+    <Field label={t.common.nameAr} error={error} key="ar">
+      <Input dir="rtl" lang="ar" autoFocus={lang === 'ar'} value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder={t.roomForm.nameArPlaceholder} invalid={!!error} />
+    </Field>
+  );
+  const enField = (
+    <Field label={t.common.nameEn} hint={t.roomForm.nameEnHint} key="en">
+      <Input dir="ltr" lang="en" autoFocus={lang === 'en'} value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder={t.roomForm.nameEnPlaceholder} />
+    </Field>
+  );
+
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={room ? 'Edit room details' : 'Add a room'}
-      description={room ? undefined : 'Start with the basics — dimensions, photos and requirements are added inside the room.'}
+      title={room ? t.roomForm.editTitle : t.roomForm.addTitle}
+      description={room ? undefined : t.roomForm.addLead}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="primary" onClick={save} loading={saving}>
-            {room ? 'Save' : 'Add room'}
+            {room ? t.common.save : t.roomForm.add}
           </Button>
         </>
       }
@@ -135,35 +145,33 @@ export function RoomFormDialog({
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          save();
+          void save();
         }}
       >
-        <Field label="Name" error={error}>
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Guest Bedroom" invalid={!!error} />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">{lang === 'ar' ? [arField, enField] : [enField, arField]}</div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Room type">
+          <Field label={t.roomForm.type}>
             <Select value={type} onChange={(e) => setType(e.target.value as RoomType)}>
-              {ROOM_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {ROOM_TYPES.map((rt) => (
+                <option key={rt.value} value={rt.value}>
+                  {rt.label}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Floor" hint={floors.length ? undefined : 'Create floors in Floor Plans.'}>
+          <Field label={t.roomForm.floor} hint={floors.length ? undefined : t.roomForm.floorHint}>
             <Select value={floorId} onChange={(e) => setFloorId(e.target.value)}>
-              <option value="">Unknown / not assigned</option>
+              <option value="">{t.roomForm.noFloor}</option>
               {floors.map((f: Floor) => (
                 <option key={f.id} value={f.id}>
-                  {f.name}
+                  {floorDisplayName(f, lang)}
                 </option>
               ))}
             </Select>
           </Field>
         </div>
         {room && (
-          <Field label="Design status">
+          <Field label={t.roomForm.status}>
             <Select value={status} onChange={(e) => setStatus(e.target.value as RoomStatus)}>
               {ROOM_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -173,7 +181,7 @@ export function RoomFormDialog({
             </Select>
           </Field>
         )}
-        <Field label="Description" hint="Optional — how the room is used, who uses it, anything notable.">
+        <Field label={t.common.description} hint={t.roomForm.descriptionHint}>
           <Textarea value={description} onChange={(e) => setDescription(e.target.value)} minRows={3} />
         </Field>
         <button type="submit" className="hidden" />
@@ -184,41 +192,28 @@ export function RoomFormDialog({
 
 /** Room actions shared by the gallery and workspace. */
 export function useRoomActions() {
+  const { t, lang } = useI18n();
   const confirm = useConfirm();
   const navigate = useNavigate();
   return {
     async remove(room: Room, after?: () => void) {
       const impact = await roomDeletionImpact(room.id);
+      const name = roomDisplayName(room, lang) || roomTypeLabel(room.type);
       const r = await confirm({
-        title: `Delete ${room.name}?`,
+        title: t.roomForm.deleteTitle(name),
         tone: 'danger',
-        confirmLabel: 'Delete room',
-        description: (
-          <>
-            This permanently deletes the room, its dimensions, architecture, layout,{' '}
-            {impact.requirements ? plural(impact.requirements, 'requirement') : 'requirements'} and{' '}
-            {impact.versions ? plural(impact.versions, 'design version') : 'design versions'}. Export a backup first if you might need it.
-          </>
-        ),
-        checkbox: impact.exclusiveImages
-          ? {
-              label: `Also delete ${plural(impact.exclusiveImages, 'image')} used only by this room`,
-              description: 'Leave unchecked to keep them in the Design Library.',
-              defaultChecked: true,
-            }
-          : undefined,
-        typeToConfirm: impact.versions > 0 || impact.requirements > 3 ? 'DELETE' : undefined,
+        confirmLabel: t.roomForm.deleteConfirm,
+        description: t.roomForm.deleteBody(impact.requirements, impact.versions),
+        typeToConfirm: impact.versions > 0 || impact.requirements > 3 ? t.roomForm.typeWord : undefined,
       });
       if (!r.confirmed) return;
-      await deleteRoom(room.id, { deleteImages: r.checked });
-      toast.success(`${room.name} deleted`);
+      await deleteRoom(room.id);
+      toast.success(t.roomForm.deleted(name), { description: t.trash.moveHint });
       after?.();
     },
     async duplicate(room: Room) {
       const copy = await duplicateRoom(room.id);
-      toast.success(`Created ${copy.name}`, {
-        description: 'Dimensions, architecture, layout, requirements and direction were copied. Design versions were not.',
-      });
+      toast.success(t.roomForm.duplicated(roomDisplayName(copy, lang)), { description: t.roomForm.duplicatedHint });
       navigate(`/rooms/${copy.id}/overview`);
     },
   };

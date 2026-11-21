@@ -1,6 +1,16 @@
 import type { Certainty, LengthUnit, Measure } from './types';
+import { msgs, tr } from '../i18n/messages';
+import { num } from '../i18n/format';
+import { toAsciiDigits } from '../i18n/arabic';
+import { getPrefs, type Lang } from '../i18n/prefs';
 
+/** English unit symbols (prompts, exports). Use unitLabel() in the interface. */
 export const UNIT_LABEL: Record<LengthUnit, string> = { mm: 'mm', cm: 'cm', m: 'm' };
+
+/** Unit symbol in the interface language (m / م …). */
+export function unitLabel(unit: LengthUnit, lang: Lang = getPrefs().lang): string {
+  return msgs(lang).units[unit];
+}
 const MM_PER: Record<LengthUnit, number> = { mm: 1, cm: 10, m: 1000 };
 const DECIMALS: Record<LengthUnit, number> = { mm: 0, cm: 1, m: 3 };
 
@@ -15,7 +25,7 @@ export function fromUnit(value: number, unit: LengthUnit): number {
   return Math.round(value * MM_PER[unit] * 1000) / 1000;
 }
 
-/** Value formatted for an input field (no unit, trimmed trailing zeros). */
+/** Value formatted for an input field (no unit, trimmed trailing zeros, ASCII digits). */
 export function formatInputValue(mm: number | null, unit: LengthUnit): string {
   if (mm === null || !Number.isFinite(mm)) return '';
   const v = toUnit(mm, unit);
@@ -27,35 +37,41 @@ function trimZeros(s: string): string {
   return s.replace(/\.?0+$/, '');
 }
 
-/** "6.2 m", "620 cm", "6,200 mm". */
-export function formatLength(mm: number | null, unit: LengthUnit, opts: { unknown?: string; decimals?: number } = {}): string {
-  if (mm === null || !Number.isFinite(mm)) return opts.unknown ?? 'Unknown';
+export interface FormatOpts {
+  unknown?: string;
+  decimals?: number;
+  /** Language of the text; defaults to the interface language. AI prompts pass 'en'. */
+  lang?: Lang;
+}
+
+/** "6.2 m", "620 cm", "6,200 mm" — or "٦٫٢ م" in Arabic with Arabic digits. */
+export function formatLength(mm: number | null, unit: LengthUnit, opts: FormatOpts = {}): string {
+  const lang = opts.lang ?? getPrefs().lang;
+  if (mm === null || !Number.isFinite(mm)) return opts.unknown ?? msgs(lang).units.unknown;
   const v = toUnit(mm, unit);
-  const decimals = opts.decimals ?? (unit === 'm' ? 2 : unit === 'cm' ? 0 : 0);
-  const text = unit === 'mm' ? Math.round(v).toLocaleString('en-US') : trimZeros(v.toFixed(decimals));
-  return `${text} ${UNIT_LABEL[unit]}`;
+  const decimals = opts.decimals ?? (unit === 'm' ? 2 : 0);
+  return `${num(v, { lang, max: decimals, grouping: unit === 'mm' })} ${msgs(lang).units[unit]}`;
 }
 
 /** Compact "300 × 100 cm" style used for furniture footprints. */
-export function formatSize(widthMm: number | null, depthMm: number | null, unit: LengthUnit): string {
-  const u = unit === 'mm' ? 'mm' : unit === 'm' ? 'm' : 'cm';
+export function formatSize(widthMm: number | null, depthMm: number | null, unit: LengthUnit, lang: Lang = getPrefs().lang): string {
   const f = (mm: number | null) => {
     if (mm === null) return '?';
-    const v = toUnit(mm, u);
-    return u === 'm' ? trimZeros(v.toFixed(2)) : trimZeros(v.toFixed(u === 'cm' ? 1 : 0));
+    const v = toUnit(mm, unit);
+    return num(v, { lang, max: unit === 'm' ? 2 : unit === 'cm' ? 1 : 0, grouping: false });
   };
-  return `${f(widthMm)} × ${f(depthMm)} ${u}`;
+  return `${f(widthMm)} × ${f(depthMm)} ${msgs(lang).units[unit]}`;
 }
 
-export function formatArea(mm2: number | null, opts: { unknown?: string } = {}): string {
-  if (mm2 === null || !Number.isFinite(mm2)) return opts.unknown ?? 'Unknown';
-  const m2 = mm2 / 1_000_000;
-  return `${m2.toFixed(2)} m²`;
+export function formatArea(mm2: number | null, opts: { unknown?: string; lang?: Lang } = {}): string {
+  const lang = opts.lang ?? getPrefs().lang;
+  if (mm2 === null || !Number.isFinite(mm2)) return opts.unknown ?? msgs(lang).units.unknown;
+  return `${num(mm2 / 1_000_000, { lang, min: 2, max: 2 })} ${msgs(lang).units.m2}`;
 }
 
-export function formatVolume(mm3: number | null): string {
-  if (mm3 === null || !Number.isFinite(mm3)) return 'Unknown';
-  return `${(mm3 / 1_000_000_000).toFixed(2)} m³`;
+export function formatVolume(mm3: number | null, lang: Lang = getPrefs().lang): string {
+  if (mm3 === null || !Number.isFinite(mm3)) return msgs(lang).units.unknown;
+  return `${num(mm3 / 1_000_000_000, { lang, min: 2, max: 2 })} ${msgs(lang).units.m3}`;
 }
 
 export type ParseResult = { ok: true; mm: number | null } | { ok: false; error: string };
@@ -64,22 +80,22 @@ export type ParseResult = { ok: true; mm: number | null } | { ok: false; error: 
  * Parse a user-entered length. Accepts plain numbers in the given unit, or an
  * explicit unit suffix ("620cm", "6.2 m", "6200mm"). Empty input = unknown.
  */
+const UNIT_WORDS: Record<string, LengthUnit> = { mm: 'mm', cm: 'cm', m: 'm', 'مم': 'mm', 'ملم': 'mm', 'سم': 'cm', 'م': 'm', 'متر': 'm' };
+
 export function parseLength(input: string, unit: LengthUnit, opts: { allowZero?: boolean; max?: number } = {}): ParseResult {
-  const raw = input
-    .trim()
-    .replace(/,/g, '.')
-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const t = tr().measure;
+  const raw = toAsciiDigits(input).trim().replace(/,/g, '.').replace(/\s+/g, ' ');
   if (raw === '') return { ok: true, mm: null };
-  const m = raw.match(/^(-?\d+(?:\.\d+)?)\s*(mm|cm|m)?$/i);
-  if (!m) return { ok: false, error: 'Enter a number, e.g. 4.2' };
+  const m = raw.match(/^(-?\d+(?:\.\d+)?)\s*(mm|cm|m|مم|ملم|سم|م|متر)?$/i);
+  if (!m) return { ok: false, error: t.enterNumber };
   const value = Number(m[1]);
-  const u = (m[2]?.toLowerCase() as LengthUnit | undefined) ?? unit;
-  if (!Number.isFinite(value)) return { ok: false, error: 'Not a valid number' };
+  const u = (m[2] ? UNIT_WORDS[m[2].toLowerCase()] : undefined) ?? unit;
+  if (!Number.isFinite(value)) return { ok: false, error: t.notNumber };
   const mm = fromUnit(value, u);
-  if (mm < 0) return { ok: false, error: 'Must be positive' };
-  if (mm === 0 && !opts.allowZero) return { ok: false, error: 'Must be greater than zero' };
+  if (mm < 0) return { ok: false, error: t.mustBePositive };
+  if (mm === 0 && !opts.allowZero) return { ok: false, error: t.mustBeAboveZero };
   const max = opts.max ?? MAX_LENGTH_MM;
-  if (mm > max) return { ok: false, error: `Too large (max ${formatLength(max, 'm')})` };
+  if (mm > max) return { ok: false, error: t.tooLarge(formatLength(max, 'm')) };
   return { ok: true, mm };
 }
 

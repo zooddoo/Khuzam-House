@@ -37,20 +37,25 @@ import { WallsTab } from './tabs/WallsTab';
 import { DirectionTab } from './tabs/DirectionTab';
 import { PhotosTab } from './tabs/PhotosTab';
 import { VersionsTab } from './tabs/VersionsTab';
+import { useI18n, type Messages } from '@/i18n';
+import { floorDisplayName, roomDisplayName, roomSecondaryName } from '@/lib/names';
 
-const TABS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'requirements', label: 'Requirements', icon: ClipboardList },
-  { id: 'dimensions', label: 'Dimensions', icon: Ruler },
-  { id: 'architecture', label: 'Architecture', icon: Box },
-  { id: 'layout', label: 'Layout', icon: Sofa },
-  { id: 'walls', label: 'Walls', icon: BrickWall },
-  { id: 'direction', label: 'Direction', icon: Palette },
-  { id: 'photos', label: 'Photos & references', icon: ImageIcon },
-  { id: 'versions', label: 'Versions', icon: History },
+type TabId = keyof Messages['room']['tabs'];
+
+const TABS: { id: TabId; icon: LucideIcon }[] = [
+  { id: 'overview', icon: LayoutDashboard },
+  { id: 'requirements', icon: ClipboardList },
+  { id: 'dimensions', icon: Ruler },
+  { id: 'architecture', icon: Box },
+  { id: 'layout', icon: Sofa },
+  { id: 'walls', icon: BrickWall },
+  { id: 'direction', icon: Palette },
+  { id: 'photos', icon: ImageIcon },
+  { id: 'versions', icon: History },
 ];
 
 export function RoomWorkspace() {
+  const { t, lang } = useI18n();
   const { roomId = '', tab = 'overview' } = useParams();
   const room = useRoom(roomId);
   const floors = useFloors() ?? [];
@@ -64,14 +69,16 @@ export function RoomWorkspace() {
   if (room === undefined) return <LoadingBlock />;
   if (room === null)
     return (
-      <EmptyState title="Room not found" action={<ButtonLink to="/rooms">Back to My Rooms</ButtonLink>}>
-        It may have been deleted.
+      <EmptyState title={t.room.notFound} action={<ButtonLink to="/rooms">{t.room.backToRooms}</ButtonLink>}>
+        {t.room.notFoundHint}
       </EmptyState>
     );
-  if (!TABS.some((t) => t.id === tab)) return <Navigate to={`/rooms/${room.id}/overview`} replace />;
+  if (!TABS.some((x) => x.id === tab)) return <Navigate to={`/rooms/${room.id}/overview`} replace />;
 
   const shape = computeRoomShape(room);
-  const floorName = floors.find((f) => f.id === room.floorId)?.name ?? 'Floor unknown';
+  const floorName = floorDisplayName(floors.find((f) => f.id === room.floorId), lang) || t.room.floorUnknown;
+  const name = roomDisplayName(room, lang);
+  const secondary = roomSecondaryName(room, lang);
   const status = roomStatusMeta(room.status);
   const badges: Record<string, number> = {
     requirements: reqs.length,
@@ -83,17 +90,25 @@ export function RoomWorkspace() {
 
   return (
     <div>
-      <nav className="mb-3 flex items-center gap-1 text-[12px] text-ink-3" aria-label="Breadcrumb">
+      <nav className="mb-3 flex items-center gap-1 text-[12px] text-ink-3" aria-label={t.room.breadcrumb}>
         <Link to="/rooms" className="hover:text-ink">
-          My Rooms
+          {t.nav.rooms}
         </Link>
-        <ChevronRight size={12} />
-        <span className="text-ink-2">{room.name}</span>
+        <ChevronRight size={12} className="rtl:-scale-x-100" />
+        <span className="truncate text-ink-2">{name}</span>
       </nav>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 sm:mb-6">
         <div className="min-w-0">
-          <h1 className="display truncate text-[42px] sm:text-[52px]">{room.name}</h1>
+          <h1 className="display truncate text-[36px] sm:text-[52px]">{name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
+            {secondary && (
+              <>
+                <span dir="auto" className="text-ink-2">
+                  {secondary}
+                </span>
+                <span className="text-ink-4">·</span>
+              </>
+            )}
             <span>{roomTypeLabel(room.type)}</span>
             <span className="text-ink-4">·</span>
             <span>{floorName}</span>
@@ -107,40 +122,40 @@ export function RoomWorkspace() {
               trigger={
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-ink-2 hover:bg-mist"
-                  aria-label="Change design status"
+                  className="touch-target inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-ink-2 hover:bg-mist"
+                  aria-label={t.room.changeStatus}
                 >
                   <Dot tone={status.tone} /> {status.label} <ChevronDown size={12} />
                 </button>
               }
               items={[
-                { heading: 'Design status' },
+                { heading: t.room.statusHeading },
                 ...ROOM_STATUSES.map((s) => ({
                   label: s.label,
-                  hint: s.value === room.status ? 'current' : undefined,
+                  hint: s.value === room.status ? t.room.current : undefined,
                   onSelect: () => patchRoom(room.id, { status: s.value }),
                 })),
               ]}
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ButtonLink to={`/studio/${room.id}`} variant="primary" size="lg" icon={Sparkles}>
-            Redesign This Room
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <ButtonLink to={`/studio/${room.id}`} variant="primary" size="lg" icon={Sparkles} className="flex-1 sm:flex-none">
+            {t.room.redesign}
           </ButtonLink>
           <Menu
-            trigger={<IconButton icon={MoreHorizontal} label="Room actions" variant="secondary" size="md" />}
+            trigger={<IconButton icon={MoreHorizontal} label={t.room.actions} variant="secondary" size="md" />}
             items={[
-              { label: 'Edit details', icon: Pencil, onSelect: () => setEditing(true) },
-              { label: 'Duplicate room', icon: Copy, onSelect: () => actions.duplicate(room) },
+              { label: t.room.editDetails, icon: Pencil, onSelect: () => setEditing(true) },
+              { label: t.room.duplicate, icon: Copy, onSelect: () => actions.duplicate(room) },
               'separator',
-              { label: 'Delete room', icon: Trash2, danger: true, onSelect: () => actions.remove(room, () => navigate('/rooms')) },
+              { label: t.room.delete, icon: Trash2, danger: true, onSelect: () => actions.remove(room, () => navigate('/rooms')) },
             ]}
           />
         </div>
       </header>
 
-      <LinkTabs base={`/rooms/${room.id}`} tabs={TABS.map((t) => ({ ...t, badge: badges[t.id] }))} className="mb-8" />
+      <LinkTabs base={`/rooms/${room.id}`} tabs={TABS.map((x) => ({ ...x, label: t.room.tabs[x.id], badge: badges[x.id] }))} className="mb-6 sm:mb-8" />
 
       {tab === 'overview' && <OverviewTab room={room} requirements={reqs} references={refs} versions={versions} />}
       {tab === 'requirements' && <RequirementsTab room={room} requirements={reqs} references={refs} />}

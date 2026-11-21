@@ -1,5 +1,7 @@
 import type { ArchElement, Certainty, Corner, ID, LengthUnit, Measure, Room, RoomGeometry, Wall, WallDesign } from '../types';
 import { combineCertainty, formatArea, formatLength, isKnown, UNKNOWN } from '../units';
+import { tr } from '../../i18n/messages';
+import { wallTitle } from './names';
 import { add, bbox, dist, headingVector, normalizeAngle, polygonArea, scale, selfIntersections, signedArea, type Point } from './polygon';
 
 export type IssueLevel = 'error' | 'warning' | 'info';
@@ -57,6 +59,27 @@ const COMPASS_LABEL: Record<string, string> = {
 export function compassLabel(c: string): string {
   return COMPASS_LABEL[c] ?? c;
 }
+
+/** Element name for messages: the owner's label, with default type names translated. */
+function elementName(el: ArchElement): string {
+  const t = tr();
+  const english = ELEMENT_EN[el.type];
+  if (!el.label || el.label === english) return t.enums.elementType[el.type];
+  const m = new RegExp(`^${english} (\\d+)$`).exec(el.label);
+  return m ? `${t.enums.elementType[el.type]} ${m[1]}` : el.label;
+}
+
+const ELEMENT_EN: Record<ArchElement['type'], string> = {
+  door: 'Door',
+  window: 'Window',
+  ac: 'AC unit',
+  column: 'Column',
+  beam: 'Structural beam',
+  recess: 'Wall recess',
+  projection: 'Wall projection',
+  electrical: 'Electrical point',
+  other: 'Other fixed element',
+};
 
 export function emptyWallDesign(): WallDesign {
   return { cladding: '', artwork: '', tv: '', lighting: '', furniture: '', other: '' };
@@ -126,8 +149,9 @@ export function parametricLayout(g: RoomGeometry): ParametricLayout {
   const W = g.width;
   const issues: GeometryIssue[] = [];
   const missing: string[] = [];
-  if (!isKnown(L)) missing.push('Length');
-  if (!isKnown(W)) missing.push('Width');
+  const t = tr().geometry;
+  if (!isKnown(L)) missing.push(t.length);
+  if (!isKnown(W)) missing.push(t.width);
 
   if (g.shape === 'rectangle') {
     const walls = [pw('N', L, 0), pw('E', W, 90), pw('S', L, 180), pw('W', W, 270)];
@@ -146,16 +170,16 @@ export function parametricLayout(g: RoomGeometry): ParametricLayout {
   // L-shape
   const cl = g.lCutout.length;
   const cw = g.lCutout.width;
-  if (!isKnown(cl)) missing.push('Cut-out length');
-  if (!isKnown(cw)) missing.push('Cut-out width');
+  if (!isKnown(cl)) missing.push(t.cutoutLength);
+  if (!isKnown(cw)) missing.push(t.cutoutWidth);
   let valid = true;
   if (isKnown(L) && isKnown(cl) && cl.mm >= L.mm) {
     valid = false;
-    issues.push({ level: 'error', code: 'cutout-length', message: 'The cut-out length must be smaller than the overall length.' });
+    issues.push({ level: 'error', code: 'cutout-length', message: t.cutoutLengthTooBig });
   }
   if (isKnown(W) && isKnown(cw) && cw.mm >= W.mm) {
     valid = false;
-    issues.push({ level: 'error', code: 'cutout-width', message: 'The cut-out width must be smaller than the overall width.' });
+    issues.push({ level: 'error', code: 'cutout-width', message: t.cutoutWidthTooBig });
   }
   const Lc = sub(L, cl);
   const Wc = sub(W, cw);
@@ -307,14 +331,15 @@ export function computeRoomShape(room: Pick<Room, 'geometry' | 'walls'>): RoomSh
   }
 
   // Custom polygon from wall segments.
+  const t = tr().geometry;
   const walls = room.walls;
   const missing: string[] = [];
   if (walls.length < 3) {
-    issues.push({ level: 'error', code: 'too-few-walls', message: 'A custom shape needs at least three walls.' });
+    issues.push({ level: 'error', code: 'too-few-walls', message: t.tooFewWalls });
   }
   walls.forEach((w) => {
-    if (!isKnown(w.length)) missing.push(`${w.name} length`);
-    else if (w.length.mm <= 0) issues.push({ level: 'error', code: 'zero-wall', message: `${w.name} has zero length.`, wallIds: [w.id] });
+    if (!isKnown(w.length)) missing.push(t.wallLength(wallTitle(w)));
+    else if (w.length.mm <= 0) issues.push({ level: 'error', code: 'zero-wall', message: t.zeroWall(wallTitle(w)), wallIds: [w.id] });
   });
   const allKnown = missing.length === 0 && walls.length >= 3;
 
@@ -348,7 +373,7 @@ export function computeRoomShape(room: Pick<Room, 'geometry' | 'walls'>): RoomSh
       issues.push({
         level: 'warning',
         code: 'not-closed',
-        message: `The walls don't form a closed room: the last wall ends ${formatLength(closureGap, 'cm')} away from where the first wall starts. Check wall lengths and directions.`,
+        message: t.notClosed(formatLength(closureGap, 'cm')),
       });
       areaCert = combineCertainty(areaCert, 'estimated');
     }
@@ -356,7 +381,7 @@ export function computeRoomShape(room: Pick<Room, 'geometry' | 'walls'>): RoomSh
       issues.push({
         level: 'info',
         code: 'counter-clockwise',
-        message: 'Walls appear to be listed counter-clockwise. For clearer positions, list walls clockwise as seen from above with north at the top.',
+        message: t.counterClockwise,
       });
     }
     const crossings = selfIntersections(vertices);
@@ -364,12 +389,12 @@ export function computeRoomShape(room: Pick<Room, 'geometry' | 'walls'>): RoomSh
       issues.push({
         level: 'warning',
         code: 'self-intersect',
-        message: 'Some walls cross each other — the shape cannot be a real room. Check the wall directions.',
+        message: t.selfIntersect,
         wallIds: crossings.flatMap(([a, b]) => [walls[a].id, walls[b].id]),
       });
     }
     if (areaMm2 < 1) {
-      issues.push({ level: 'error', code: 'zero-area', message: 'These walls enclose no floor area.' });
+      issues.push({ level: 'error', code: 'zero-area', message: t.zeroArea });
     }
   }
 
@@ -446,12 +471,14 @@ export function elementSpan(seg: WallSegment | undefined, el: Pick<ArchElement, 
 
 /** Problems with how architectural elements sit on their walls. */
 export function elementIssues(room: Room, shape: RoomShapeResult = computeRoomShape(room)): GeometryIssue[] {
+  const t = tr().geometry;
   const issues: GeometryIssue[] = [];
+  const label = (el: ArchElement, fallback = t.anElement) => (el.label ? elementName(el) : fallback);
   const byWall = new Map<ID, ArchElement[]>();
   for (const el of room.elements) {
     if (el.placement !== 'wall') continue;
     if (!el.wallId) {
-      issues.push({ level: 'warning', code: 'no-wall', message: `${el.label || 'An element'} is not assigned to a wall.` });
+      issues.push({ level: 'warning', code: 'no-wall', message: t.noWall(label(el)) });
       continue;
     }
     const seg = findSegment(shape, el.wallId);
@@ -459,7 +486,7 @@ export function elementIssues(room: Room, shape: RoomShapeResult = computeRoomSh
       issues.push({
         level: 'warning',
         code: 'missing-wall',
-        message: `${el.label || 'An element'} is assigned to a wall that no longer exists. Reassign it.`,
+        message: t.missingWall(label(el)),
       });
       continue;
     }
@@ -467,7 +494,7 @@ export function elementIssues(room: Room, shape: RoomShapeResult = computeRoomSh
       issues.push({
         level: 'warning',
         code: 'beyond-wall',
-        message: `${el.label || 'An element'} extends beyond the end of the ${seg.name} wall (${formatLength(seg.length.mm, 'm')}).`,
+        message: t.beyondWall(label(el), wallTitle(seg), formatLength(seg.length.mm, 'm')),
         wallIds: [seg.id],
       });
     }
@@ -476,7 +503,7 @@ export function elementIssues(room: Room, shape: RoomShapeResult = computeRoomSh
       issues.push({
         level: 'warning',
         code: 'above-ceiling',
-        message: `${el.label || 'An element'} is taller than the ${seg.name} wall height (${formatLength(h.mm, 'm')}).`,
+        message: t.aboveCeiling(label(el), wallTitle(seg), formatLength(h.mm, 'm')),
         wallIds: [seg.id],
       });
     }
@@ -503,7 +530,7 @@ export function elementIssues(room: Room, shape: RoomShapeResult = computeRoomSh
           issues.push({
             level: 'warning',
             code: 'openings-overlap',
-            message: `${a.label || 'An opening'} and ${b.label || 'another opening'} overlap on the same wall.`,
+            message: t.openingsOverlap(label(a, t.anOpening), label(b, t.anotherOpening)),
             wallIds: [wallId],
           });
         }
@@ -564,38 +591,42 @@ export function toRectangleGeometry(room: Room): { geometry: RoomGeometry; walls
 }
 
 export function shapeLabel(g: RoomGeometry): string {
-  if (g.shape === 'rectangle') return 'Rectangular';
-  if (g.shape === 'l-shape') return 'L-shaped';
-  return 'Custom shape';
+  const t = tr().geometry;
+  if (g.shape === 'rectangle') return t.rectangular;
+  if (g.shape === 'l-shape') return t.lShaped;
+  return t.customShape;
 }
 
 /** One-line dimension summary for cards and headers. */
 export function dimensionSummary(room: Room, unit: LengthUnit = room.displayUnit): string {
+  const t = tr().geometry;
   const g = room.geometry;
   if (g.shape === 'custom') {
     const shape = computeRoomShape(room);
-    if (!shape.drawable) return room.walls.length ? `Custom shape · ${room.walls.length} walls · lengths incomplete` : 'Dimensions unknown';
-    return `Custom shape · ${formatLength(shape.bounds.width, unit)} × ${formatLength(shape.bounds.height, unit)} overall`;
+    if (!shape.drawable) return room.walls.length ? t.customSummary(room.walls.length) : t.dimsUnknown;
+    return t.customOverall(formatLength(shape.bounds.width, unit), formatLength(shape.bounds.height, unit));
   }
-  if (!isKnown(g.length) && !isKnown(g.width)) return 'Dimensions unknown';
+  if (!isKnown(g.length) && !isKnown(g.width)) return t.dimsUnknown;
   const l = formatLength(g.length.mm, unit, { unknown: '?' });
   const w = formatLength(g.width.mm, unit, { unknown: '?' });
-  const approx = g.length.certainty === 'estimated' || g.width.certainty === 'estimated' ? '≈ ' : '';
-  return `${approx}${l} × ${w}${g.shape === 'l-shape' ? ' (L-shaped, overall)' : ''}`;
+  const approx = g.length.certainty === 'estimated' || g.width.certainty === 'estimated' ? t.approx : '';
+  return `${approx}${l} × ${w}${g.shape === 'l-shape' ? t.lOverall : ''}`;
 }
 
 export function areaSummary(shape: RoomShapeResult): string {
-  if (shape.area.mm2 === null) return 'Area unknown';
-  return `${shape.area.certainty === 'estimated' ? '≈ ' : ''}${formatArea(shape.area.mm2)}`;
+  const t = tr().geometry;
+  if (shape.area.mm2 === null) return t.areaUnknown;
+  return `${shape.area.certainty === 'estimated' ? t.approx : ''}${formatArea(shape.area.mm2)}`;
 }
 
 export function cornerLabel(c: Corner): string {
-  return { nw: 'North-west', ne: 'North-east', se: 'South-east', sw: 'South-west' }[c];
+  return tr().enums.corner[c];
 }
 
 /** Plain-language name of the end a wall's offsets are measured from, e.g. "west end". */
 export function wallStartLabel(seg: Pick<WallSegment, 'heading'>): string {
   const b = normalizeAngle(seg.heading + 180);
-  const names = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
-  return `${names[Math.round(b / 45) % 8]} end`;
+  const codes = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+  const g = tr().geo;
+  return g.endOf(g.compass[codes[Math.round(b / 45) % 8]]);
 }

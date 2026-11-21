@@ -1,9 +1,10 @@
 import { db } from './db';
-import { collectGarbage } from './gc';
 import { addReferenceFromBlob } from './references';
+import { moveToTrash } from './trash';
+import { trashOrphanedReferences } from './rooms';
 import { snapshotRequirements, snapshotRoom } from './snapshots';
 import { advanceRoomStatus } from './rooms';
-import { newId, nowIso } from '../ids';
+import { copyName, newId, nowIso } from '../ids';
 import type { DesignVersion, ID, RoomStatus, VersionStatus } from '../types';
 
 export type NewVersion = Omit<DesignVersion, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'roomId'>;
@@ -58,7 +59,7 @@ export async function duplicateVersion(id: ID): Promise<DesignVersion | null> {
   if (!src) return null;
   const copy = await createVersion(src.roomId, {
     ...structuredClone(src),
-    title: `${src.title} (copy)`,
+    title: copyName(src.title),
     status: 'draft',
     origin: 'duplicate',
     basedOnVersionId: src.id,
@@ -71,27 +72,21 @@ export async function duplicateVersion(id: ID): Promise<DesignVersion | null> {
   return copy;
 }
 
+/** Move a design version to Recently Deleted (with its design image if nothing else uses it). */
 export async function deleteVersion(id: ID): Promise<void> {
-  await db.transaction('rw', [db.versions, db.references, db.rooms, db.comparisons], async () => {
-    const v = await db.versions.get(id);
-    if (!v) return;
-    await db.versions.delete(id);
-    const refs = await db.references.where('versionIds').equals(id).toArray();
-    for (const r of refs) {
-      const versionIds = r.versionIds.filter((x) => x !== id);
-      if (r.kind === 'generated' && versionIds.length === 0) await db.references.delete(r.id);
-      else await db.references.update(r.id, { versionIds });
-    }
+  const v = await db.versions.get(id);
+  if (!v) return;
+  const label = { en: v.title || `v${v.number}`, ar: v.title || `الإصدار ${v.number}` };
+  await moveToTrash('version', label, v.roomId, async (rec) => {
+    await rec.remove('versions', id);
+    await trashOrphanedReferences(rec, { versions: new Set([id]) });
     const room = await db.rooms.get(v.roomId);
     if (room?.approvedVersionId === id) {
       const others = (await db.versions.where('roomId').equals(room.id).toArray()).filter((x) => x.status === 'approved').sort((a, b) => b.number - a.number);
-      await db.rooms.update(room.id, { approvedVersionId: others[0]?.id ?? null, status: others.length ? 'approved' : 'review' });
+      await rec.setField('rooms', room.id, 'approvedVersionId', others[0]?.id ?? null);
+      await rec.setField('rooms', room.id, 'status', others.length ? 'approved' : 'review');
     }
-    await db.comparisons.toCollection().modify((c) => {
-      c.items = c.items.filter((it) => !(it.type === 'version' && it.id === id));
-    });
   });
-  await collectGarbage();
 }
 
 /**

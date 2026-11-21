@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Certainty, LengthUnit, Measure } from '@/lib/types';
-import { formatInputValue, parseLength, UNIT_LABEL } from '@/lib/units';
+import { formatInputValue, parseLength, unitLabel } from '@/lib/units';
 import { certaintyMeta } from '@/lib/labels';
+import { useT } from '@/i18n';
 import { cn } from './cn';
 import { inputClass } from './Form';
 import { Popover, PopoverClose } from './Overlay';
@@ -41,6 +42,7 @@ export function MeasureInput({
   /** Commit valid values while typing (debounced), so derived values update immediately. */
   live?: boolean;
 }) {
+  const t = useT();
   const id = useId();
   const [text, setText] = useState(formatInputValue(value.mm, unit));
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function MeasureInput({
             disabled={disabled}
             readOnly={readOnly}
             title={readOnlyReason}
-            placeholder="Unknown"
+            placeholder={t.common.unknown}
             onFocus={() => (focused.current = true)}
             onBlur={() => {
               focused.current = false;
@@ -124,13 +126,13 @@ export function MeasureInput({
             aria-invalid={!!error}
             className={cn(
               inputClass,
-              compact ? 'h-8 pr-9 text-[13px]' : 'h-9 pr-10',
+              compact ? 'h-10 pe-9 text-[14px] sm:h-8 sm:text-[13px]' : 'h-11 pe-10 text-[15px] sm:h-9 sm:text-[13.5px]',
               'tabular',
               readOnly && 'cursor-default bg-mist/50 text-ink-2 hover:border-line focus:ring-0',
               error && 'border-danger focus:border-danger',
             )}
           />
-          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">{UNIT_LABEL[unit]}</span>
+          <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">{unitLabel(unit)}</span>
         </div>
         <CertaintyPicker
           value={value}
@@ -167,6 +169,7 @@ export function CertaintyPicker({
   disabled?: boolean;
   compact?: boolean;
 }) {
+  const t = useT();
   const c: Certainty = value.mm === null ? 'unknown' : value.certainty;
   const meta = certaintyMeta(c);
   const chip = (
@@ -174,14 +177,14 @@ export function CertaintyPicker({
       type="button"
       disabled={disabled}
       title={meta.hint}
-      aria-label={`Certainty: ${meta.label}`}
+      aria-label={t.measure.certaintyAria(meta.label)}
       className={cn(
         'inline-flex shrink-0 items-center rounded-sm border px-2 text-[11px] font-medium transition-colors disabled:cursor-default',
-        compact ? 'h-8' : 'h-9',
+        compact ? 'h-10 sm:h-8' : 'h-11 sm:h-9',
         CHIP[c],
       )}
     >
-      {c === 'confirmed' ? 'Confirmed' : c === 'estimated' ? 'Estimated' : 'Unknown'}
+      {t.enums.certainty[c]}
     </button>
   );
   if (disabled) return chip;
@@ -194,7 +197,7 @@ export function CertaintyPicker({
             <button
               type="button"
               onClick={() => onChange(opt)}
-              className={cn('flex w-full flex-col items-start rounded-sm px-2.5 py-2 text-left hover:bg-mist', c === opt && 'bg-mist')}
+              className={cn('flex w-full flex-col items-start rounded-sm px-2.5 py-2 text-start hover:bg-mist', c === opt && 'bg-mist')}
             >
               <span className="text-[13px] font-medium text-ink">{m.label}</span>
               <span className="text-[11.5px] text-ink-3">{m.hint}</span>
@@ -202,7 +205,7 @@ export function CertaintyPicker({
           </PopoverClose>
         );
       })}
-      <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-relaxed text-ink-4">Clear the value to mark it Unknown.</p>
+      <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-relaxed text-ink-4">{t.measure.clearToUnknown}</p>
     </Popover>
   );
 }
@@ -214,7 +217,7 @@ export function LengthField({
   unit,
   onChange,
   allowZero,
-  placeholder = 'Unknown',
+  placeholder,
   compact,
   hint,
   className,
@@ -231,6 +234,7 @@ export function LengthField({
   className?: string;
   required?: boolean;
 }) {
+  const t = useT();
   const id = useId();
   const [text, setText] = useState(formatInputValue(value, unit));
   const [error, setError] = useState<string | null>(null);
@@ -242,7 +246,7 @@ export function LengthField({
     const r = parseLength(text, unit, { allowZero });
     if (!r.ok) return setError(r.error);
     if (required && r.mm === null) {
-      setError('Required');
+      setError(t.common.required);
       return;
     }
     setError(null);
@@ -260,7 +264,7 @@ export function LengthField({
           id={id}
           inputMode="decimal"
           value={text}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t.common.unknown}
           onFocus={() => (focused.current = true)}
           onBlur={() => {
             focused.current = false;
@@ -268,9 +272,14 @@ export function LengthField({
           }}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           onChange={(e) => setText(e.target.value)}
-          className={cn(inputClass, 'tabular', compact ? 'h-8 pr-9 text-[13px]' : 'h-9 pr-10', error && 'border-danger')}
+          className={cn(
+            inputClass,
+            'tabular',
+            compact ? 'h-10 pe-9 text-[14px] sm:h-8 sm:text-[13px]' : 'h-11 pe-10 text-[15px] sm:h-9 sm:text-[13.5px]',
+            error && 'border-danger',
+          )}
         />
-        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">{UNIT_LABEL[unit]}</span>
+        <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">{unitLabel(unit)}</span>
       </div>
       {error ? <p className="text-[11.5px] text-danger">{error}</p> : hint ? <p className="text-[11.5px] text-ink-3">{hint}</p> : null}
     </div>
