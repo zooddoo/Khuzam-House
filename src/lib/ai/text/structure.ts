@@ -1,3 +1,4 @@
+import { tr } from '../../../i18n/messages';
 import { z } from 'zod';
 import type { Priority, RequirementCategory, TextProviderId, TextProviderSettings } from '../../types';
 import { REQUIREMENT_CATEGORIES } from '../../labels';
@@ -65,11 +66,11 @@ export function getTextProvider(id: TextProviderId): TextProviderDef | null {
 
 export function textProviderReady(s: TextProviderSettings): { ready: boolean; label: string; problem: string | null } {
   const p = getTextProvider(s.provider);
-  if (!p) return { ready: false, label: 'Not configured', problem: 'No text model selected' };
+  if (!p) return { ready: false, label: tr().providers.notSetUp, problem: tr().providers.noTextModel };
   const model = (s.models[s.provider] ?? '').trim() || p.defaultModel;
-  if (p.needsBaseUrl && !/^https?:\/\//.test(s.baseUrl.trim())) return { ready: false, label: p.label, problem: 'Base URL missing' };
-  if (!p.needsBaseUrl && !(s.keys[s.provider] ?? '').trim()) return { ready: false, label: p.label, problem: 'API key missing' };
-  if (!model) return { ready: false, label: p.label, problem: 'Model missing' };
+  if (p.needsBaseUrl && !/^https?:\/\//.test(s.baseUrl.trim())) return { ready: false, label: p.label, problem: tr().providers.needBaseUrl };
+  if (!p.needsBaseUrl && !(s.keys[s.provider] ?? '').trim()) return { ready: false, label: p.label, problem: tr().providers.needKey('API key') };
+  if (!model) return { ready: false, label: p.label, problem: tr().providers.needModel };
   return { ready: true, label: `${p.label} · ${model}`, problem: null };
 }
 

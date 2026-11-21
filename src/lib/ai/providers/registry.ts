@@ -1,3 +1,4 @@
+import { tr } from '../../../i18n/messages';
 import type { ImageProviderId, ImageProviderSettings } from '../../types';
 import { compatProvider, openaiProvider } from './openai';
 import { geminiProvider } from './gemini';
@@ -25,14 +26,14 @@ export function activeImageProvider(s: ImageProviderSettings): ActiveImageProvid
   const model = modelFor(s, provider.defaultModel);
   const capabilities = provider.capabilities(model, s);
   let problem: string | null = null;
-  if (provider.needsBaseUrl && !/^https?:\/\//.test(s.baseUrl.trim())) problem = 'Enter the endpoint base URL in Settings.';
-  else if (!provider.needsBaseUrl && !keyFor(s)) problem = `Enter your ${provider.keyLabel} in Settings.`;
-  else if (!model) problem = 'Enter a model name in Settings.';
+  if (provider.needsBaseUrl && !/^https?:\/\//.test(s.baseUrl.trim())) problem = tr().providers.needBaseUrl;
+  else if (!provider.needsBaseUrl && !keyFor(s)) problem = tr().providers.needKey(provider.keyLabel);
+  else if (!model) problem = tr().providers.needModel;
   return { provider, model, capabilities, ready: !problem, problem };
 }
 
 export function imageProviderSummary(s: ImageProviderSettings): { configured: boolean; label: string } {
   const a = activeImageProvider(s);
-  if (!a) return { configured: false, label: 'No provider selected' };
+  if (!a) return { configured: false, label: tr().providers.noneSelected };
   return { configured: a.ready, label: a.ready ? `${a.provider.label} · ${a.model}` : (a.problem ?? a.provider.label) };
 }

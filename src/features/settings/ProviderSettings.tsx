@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Display';
 import { CommitInput, Field, Input, Segmented, Select, Toggle } from '@/components/ui/Form';
 import { cn } from '@/components/ui/cn';
+import { useT } from '@/i18n';
+import { num } from '@/i18n/format';
 
 function SecretInput({ value, onCommit, placeholder, label }: { value: string; onCommit: (v: string) => void; placeholder?: string; label: string }) {
+  const T = useT().providers;
   const [show, setShow] = useState(false);
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -27,12 +30,13 @@ function SecretInput({ value, onCommit, placeholder, label }: { value: string; o
         onBlur={() => draft.trim() !== value && onCommit(draft.trim())}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         className="font-mono text-[12.5px]"
+        dir="ltr"
       />
       <Button
         size="md"
         variant="secondary"
         icon={show ? EyeOff : Eye}
-        aria-label={show ? 'Hide key' : 'Show key'}
+        aria-label={show ? T.hideKey : T.showKey}
         onClick={() => setShow((s) => !s)}
         className="!px-2.5"
       />
@@ -41,7 +45,7 @@ function SecretInput({ value, onCommit, placeholder, label }: { value: string; o
           size="md"
           variant="ghost"
           icon={X}
-          aria-label="Remove key"
+          aria-label={T.removeKey}
           onClick={() => {
             setDraft('');
             onCommit('');
@@ -54,30 +58,23 @@ function SecretInput({ value, onCommit, placeholder, label }: { value: string; o
 }
 
 function RouteField({ value, onChange, disabled }: { value: ConnectionRoute; onChange: (r: ConnectionRoute) => void; disabled?: boolean }) {
+  const T = useT().providers;
   const [proxy, setProxy] = useState<boolean | null>(null);
   useEffect(() => {
     proxyAvailable().then(setProxy);
   }, []);
   return (
     <Field
-      label="Connection"
-      hint={
-        disabled
-          ? 'Custom endpoints are always called directly from the browser.'
-          : proxy === null
-            ? 'Checking for the local proxy…'
-            : proxy
-              ? 'Local proxy detected (running via npm). “Automatic” sends requests through it, avoiding browser cross-origin limits.'
-              : 'No local proxy detected — requests go directly from the browser. Run the studio with “npm run dev” or “npm start” to enable the proxy.'
-      }
+      label={T.connection}
+      hint={disabled ? T.connDirectOnly : proxy === null ? T.connChecking : proxy ? T.connProxy : T.connNoProxy}
     >
       <Segmented
         value={disabled ? 'direct' : value}
         onChange={(v) => !disabled && onChange(v)}
         options={[
-          { value: 'auto', label: 'Automatic' },
-          { value: 'proxy', label: 'Local proxy' },
-          { value: 'direct', label: 'Direct' },
+          { value: 'auto', label: T.routeAuto },
+          { value: 'proxy', label: T.routeProxy },
+          { value: 'direct', label: T.routeDirect },
         ]}
       />
     </Field>
@@ -85,6 +82,8 @@ function RouteField({ value, onChange, disabled }: { value: ConnectionRoute; onC
 }
 
 export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
+  const t = useT();
+  const T = t.providers;
   const s = settings.imageProvider;
   const provider = getImageProvider(s.provider);
   const active = activeImageProvider(s);
@@ -121,8 +120,8 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
         {[
           {
             id: 'none' as ImageProviderId,
-            label: 'Not set up',
-            description: 'The studio works fully; prompts can be copied or saved, but no images are generated.',
+            label: T.notSetUp,
+            description: T.noneDescription,
           },
           ...IMAGE_PROVIDERS,
         ].map((p) => (
@@ -132,7 +131,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
             onClick={() => set((x) => void (x.provider = p.id))}
             aria-pressed={s.provider === p.id}
             className={cn(
-              'rounded-md border p-3.5 text-left transition-colors',
+              'rounded-md border p-3.5 text-start transition-colors',
               s.provider === p.id ? 'border-ink bg-raised ring-1 ring-ink' : 'border-line bg-surface hover:border-line-strong',
             )}
           >
@@ -140,7 +139,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
               {p.label}
               {s.provider === p.id && <Check size={14} />}
             </div>
-            <div className="mt-1 text-[11.5px] leading-relaxed text-ink-3">{p.description}</div>
+            <div className="mt-1 text-[11.5px] leading-relaxed text-ink-3">{T.imageDesc[p.id] ?? p.description}</div>
           </button>
         ))}
       </div>
@@ -149,8 +148,8 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="flex flex-col gap-4">
             {provider.needsBaseUrl && (
-              <Field label="Base URL" hint="Including the version path, e.g. https://api.example.com/v1">
-                <CommitInput value={s.baseUrl} onCommit={(v) => set((x) => void (x.baseUrl = v.trim()))} placeholder="https://…/v1" />
+              <Field label={T.baseUrl} hint={T.baseUrlHint}>
+                <CommitInput dir="ltr" value={s.baseUrl} onCommit={(v) => set((x) => void (x.baseUrl = v.trim()))} placeholder="https://…/v1" />
               </Field>
             )}
             <Field
@@ -163,7 +162,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[11.5px] text-accent hover:underline"
                   >
-                    Get a key <ExternalLink size={11} />
+                    {T.getKey} <ExternalLink size={11} />
                   </a>
                 ) : undefined
               }
@@ -175,8 +174,9 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                 onCommit={(v) => set((x) => void (x.keys[s.provider] = v))}
               />
             </Field>
-            <Field label="Model" hint={provider.defaultModel ? `Leave empty to use ${provider.defaultModel}.` : 'The model name your endpoint expects.'}>
+            <Field label={T.model} hint={provider.defaultModel ? T.modelDefault(provider.defaultModel) : T.modelEndpoint}>
               <Input
+                dir="ltr"
                 list="image-models"
                 defaultValue={model}
                 key={`${s.provider}-${model}`}
@@ -195,9 +195,9 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                       key={m.id}
                       type="button"
                       onClick={() => set((x) => void (x.models[s.provider] = m.id))}
-                      className="text-left text-[11.5px] text-ink-3 hover:text-ink"
+                      className="min-h-8 text-start text-[11.5px] text-ink-3 hover:text-ink"
                     >
-                      <span className={cn('font-mono', (model || provider.defaultModel) === m.id && 'text-ink')}>{m.id}</span> — {m.note}
+                      <bdi className={cn('font-mono', (model || provider.defaultModel) === m.id && 'text-ink')}>{m.id}</bdi> — {T.modelNote[m.id] ?? m.note}
                     </button>
                   ))}
                 </div>
@@ -206,10 +206,10 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
             <RouteField value={s.route} onChange={(r) => set((x) => void (x.route = r))} disabled={!provider.supportsProxy} />
             <div className="flex flex-wrap items-center gap-2">
               <Button icon={Plug} onClick={runTest} loading={testing}>
-                Test connection
+                {T.test}
               </Button>
               {active?.ready ? (
-                <span className="text-[12px] text-ok">Ready to generate</span>
+                <span className="text-[12px] text-ok">{T.readyToGenerate}</span>
               ) : (
                 <span className="text-[12px] text-ink-3">{active?.problem}</span>
               )}
@@ -235,15 +235,15 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
             )}
 
             <div className="mt-2 border-t border-line pt-4">
-              <div className="eyebrow mb-3">Options</div>
+              <div className="eyebrow mb-3">{T.options}</div>
               <div className="flex flex-col gap-4">
                 {s.provider === 'openai' && (
                   <>
                     <Toggle
                       checked={s.options.inputFidelityHigh}
                       onChange={(v) => set((x) => void (x.options.inputFidelityHigh = v))}
-                      label="High input fidelity"
-                      description="Keeps the room photo’s details closer (gpt-image models that support it). Retries without it if the model rejects the option."
+                      label={T.fidelity}
+                      description={T.fidelityHint}
                     />
                     <Field label="Output format">
                       <Segmented
@@ -261,8 +261,8 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                 {s.provider === 'stability' && (
                   <>
                     <Field
-                      label={`Structure strength · ${s.options.controlStrength.toFixed(2)}`}
-                      hint="Higher keeps more of the photo’s structure (control-structure)."
+                      label={T.structureStrength(num(s.options.controlStrength, { min: 2, max: 2 }))}
+                      hint={T.structureStrengthHint}
                     >
                       <input
                         type="range"
@@ -274,7 +274,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                         className="w-full accent-[#26221d]"
                       />
                     </Field>
-                    <Field label={`Image-to-image strength · ${s.options.imageStrength.toFixed(2)}`} hint="Lower keeps more of the photo (sd3 models).">
+                    <Field label={T.imageStrength(num(s.options.imageStrength, { min: 2, max: 2 }))} hint={T.imageStrengthHint}>
                       <input
                         type="range"
                         min={0.2}
@@ -299,12 +299,12 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                   </>
                 )}
                 {s.provider === 'gemini' && (
-                  <Field label="Output resolution" hint="Only sent to models that support it (e.g. Gemini 3 Pro Image).">
+                  <Field label={T.resolution} hint={T.resolutionHint}>
                     <Segmented
                       value={s.options.geminiImageSize}
                       onChange={(v) => set((x) => void (x.options.geminiImageSize = v))}
                       options={[
-                        { value: '', label: 'Default' },
+                        { value: '', label: T.default },
                         { value: '1K', label: '1K' },
                         { value: '2K', label: '2K' },
                         { value: '4K', label: '4K' },
@@ -313,32 +313,33 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
                   </Field>
                 )}
                 <Field
-                  label="Largest side of images sent"
-                  hint="Copies are resized and stripped of metadata such as GPS before upload. Your originals are never changed."
+                  label={T.maxEdge}
+                  hint={T.maxEdgeHint}
                 >
                   <Select value={String(s.options.maxUploadEdge)} onChange={(e) => set((x) => void (x.options.maxUploadEdge = Number(e.target.value)))}>
                     {[1024, 1536, 2048, 3072].map((v) => (
                       <option key={v} value={v}>
-                        {v} px
+                        {num(v)} px
                       </option>
                     ))}
                   </Select>
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Accepts image inputs" hint="Override only if the model’s real capability differs.">
+                  <Field label={T.acceptsImages} hint={T.acceptsImagesHint}>
                     <Select
                       value={s.overrides.acceptsImages === null ? 'auto' : s.overrides.acceptsImages ? 'yes' : 'no'}
                       onChange={(e) => set((x) => void (x.overrides.acceptsImages = e.target.value === 'auto' ? null : e.target.value === 'yes'))}
                     >
-                      <option value="auto">Automatic</option>
-                      <option value="yes">Yes</option>
-                      <option value="no">No (text only)</option>
+                      <option value="auto">{T.routeAuto}</option>
+                      <option value="yes">{t.common.yes}</option>
+                      <option value="no">{T.noTextOnly}</option>
                     </Select>
                   </Field>
-                  <Field label="Max images per request">
+                  <Field label={T.maxImages}>
                     <Input
                       inputMode="numeric"
-                      placeholder="Automatic"
+                      dir="ltr"
+                      placeholder={T.routeAuto}
                       defaultValue={s.overrides.maxImages ?? ''}
                       key={`max-${s.overrides.maxImages}`}
                       onBlur={(e) => {
@@ -354,22 +355,22 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
 
           {caps && (
             <aside className="rounded-md border border-line bg-surface p-4 xl:self-start">
-              <div className="eyebrow mb-3">What this model can do</div>
+              <div className="eyebrow mb-3">{T.capsTitle}</div>
               <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[12.5px]">
-                <dt className="text-ink-3">Generate from text</dt>
-                <dd>{caps.textToImage ? 'Yes' : 'No'}</dd>
-                <dt className="text-ink-3">Use your photos</dt>
-                <dd>{caps.imageInput ? `Yes, up to ${caps.maxImages}` : 'No'}</dd>
-                <dt className="text-ink-3">Needs a room photo</dt>
-                <dd>{caps.requiresBaseImage ? 'Yes' : 'No'}</dd>
-                <dt className="text-ink-3">Prompt length</dt>
-                <dd className="tabular">{caps.maxPromptChars.toLocaleString()} chars</dd>
-                <dt className="text-ink-3">Variations per click</dt>
-                <dd>{caps.variationsMax}</dd>
-                <dt className="text-ink-3">Keeps architecture</dt>
-                <dd className="capitalize">{caps.preservation === 'none' ? 'Cannot see photos' : caps.preservation}</dd>
+                <dt className="text-ink-3">{T.capText}</dt>
+                <dd>{caps.textToImage ? t.common.yes : t.common.no}</dd>
+                <dt className="text-ink-3">{T.capPhotos}</dt>
+                <dd>{caps.imageInput ? T.capUpTo(caps.maxImages) : t.common.no}</dd>
+                <dt className="text-ink-3">{T.capNeedsPhoto}</dt>
+                <dd>{caps.requiresBaseImage ? t.common.yes : t.common.no}</dd>
+                <dt className="text-ink-3">{T.capPromptLength}</dt>
+                <dd className="tabular">{T.chars(caps.maxPromptChars)}</dd>
+                <dt className="text-ink-3">{T.capVariations}</dt>
+                <dd>{num(caps.variationsMax)}</dd>
+                <dt className="text-ink-3">{T.capKeeps}</dt>
+                <dd>{t.studio.preserve[caps.preservation]}</dd>
               </dl>
-              <ul className="mt-4 flex list-disc flex-col gap-1.5 pl-4 text-[11.5px] leading-relaxed text-ink-3">
+              <ul className="mt-4 flex list-disc flex-col gap-1.5 ps-4 text-[11.5px] leading-relaxed text-ink-3" lang="en" dir="ltr">
                 {caps.notes.map((n) => (
                   <li key={n}>{n}</li>
                 ))}
@@ -379,16 +380,16 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
         </div>
       )}
 
-      <Callout tone="neutral" title="How keys are handled">
-        API keys are stored only in this browser’s local database on this device and are never hard-coded. They are sent only to the provider you choose —
-        directly, or through the local proxy that runs on your own machine with “npm run dev” / “npm start”. Backups leave keys out unless you choose to include
-        them. This studio is independent of ChatGPT: it never uses a ChatGPT account, conversation or project.
+      <Callout tone="neutral" title={T.keysTitle}>
+        {T.keysBody}
       </Callout>
     </div>
   );
 }
 
 export function TextProviderSettings({ settings }: { settings: AppSettings }) {
+  const t = useT();
+  const T = t.providers;
   const s = settings.textProvider;
   const provider = getTextProvider(s.provider);
   const status = textProviderReady(s);
@@ -399,12 +400,10 @@ export function TextProviderSettings({ settings }: { settings: AppSettings }) {
   const model = provider ? (s.models[s.provider] ?? '') : '';
   return (
     <div className="flex flex-col gap-4">
-      <p className="max-w-[720px] text-[12.5px] leading-relaxed text-ink-3">
-        Optional. Used only for “Structure with AI” when pasting many requirements at once. The offline splitter works without it.
-      </p>
-      <Field label="Provider">
+      <p className="max-w-[720px] text-[12.5px] leading-relaxed text-ink-3">{T.textLead}</p>
+      <Field label={T.provider}>
         <Select value={s.provider} onChange={(e) => set((x) => void (x.provider = e.target.value as TextProviderId))} className="max-w-[320px]">
-          <option value="none">Not set up</option>
+          <option value="none">{T.notSetUp}</option>
           {TEXT_PROVIDERS.map((p) => (
             <option key={p.id} value={p.id}>
               {p.label}
@@ -415,12 +414,12 @@ export function TextProviderSettings({ settings }: { settings: AppSettings }) {
       {provider && (
         <div className="grid max-w-[760px] gap-4">
           {provider.needsBaseUrl && (
-            <Field label="Base URL" hint="OpenAI-compatible chat completions endpoint, e.g. http://localhost:11434/v1">
-              <CommitInput value={s.baseUrl} onCommit={(v) => set((x) => void (x.baseUrl = v.trim()))} placeholder="https://…/v1" />
+            <Field label={T.baseUrl} hint={T.textBaseUrlHint}>
+              <CommitInput dir="ltr" value={s.baseUrl} onCommit={(v) => set((x) => void (x.baseUrl = v.trim()))} placeholder="https://…/v1" />
             </Field>
           )}
           <Field
-            label="API key"
+            label={T.apiKey}
             aside={
               provider.keyUrl ? (
                 <a
@@ -429,20 +428,21 @@ export function TextProviderSettings({ settings }: { settings: AppSettings }) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[11.5px] text-accent hover:underline"
                 >
-                  Get a key <ExternalLink size={11} />
+                  {T.getKey} <ExternalLink size={11} />
                 </a>
               ) : undefined
             }
           >
             <SecretInput
-              label="API key"
+              label={T.apiKey}
               value={s.keys[s.provider] ?? ''}
               placeholder={provider.keyPlaceholder}
               onCommit={(v) => set((x) => void (x.keys[s.provider] = v))}
             />
           </Field>
-          <Field label="Model" hint={provider.defaultModel ? `Leave empty to use ${provider.defaultModel}.` : undefined}>
+          <Field label={T.model} hint={provider.defaultModel ? T.modelDefault(provider.defaultModel) : undefined}>
             <Input
+              dir="ltr"
               list="text-models"
               defaultValue={model}
               key={`${s.provider}-${model}`}
@@ -475,9 +475,9 @@ export function TextProviderSettings({ settings }: { settings: AppSettings }) {
                 }
               }}
             >
-              Test
+              {T.testShort}
             </Button>
-            <span className={cn('text-[12px]', status.ready ? 'text-ok' : 'text-ink-3')}>{status.ready ? 'Ready' : status.problem}</span>
+            <span className={cn('text-[12px]', status.ready ? 'text-ok' : 'text-ink-3')}>{status.ready ? T.ready : status.problem}</span>
           </div>
           {result && (
             <Callout tone={result.ok ? 'info' : 'danger'} title={result.message}>
@@ -485,10 +485,7 @@ export function TextProviderSettings({ settings }: { settings: AppSettings }) {
             </Callout>
           )}
           {s.provider === 'anthropic' && (
-            <p className="text-[11.5px] leading-relaxed text-ink-3">
-              Uses the official Anthropic SDK with structured JSON output. For current Claude models, server-side refusal fallback is enabled so a declined
-              request is retried on Anthropic’s recommended model.
-            </p>
+            <p className="text-[11.5px] leading-relaxed text-ink-3">{T.anthropicNote}</p>
           )}
         </div>
       )}
