@@ -1,25 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { zipSync, strToU8 } from 'fflate';
 import { toast } from 'sonner';
 import type { GenerationSettings, ID } from '@/lib/types';
-import { useFloors, useLibrary, useProject, useRequirements, useRoom, useRoomReferences, useRooms, useSettings, useVersions } from '@/lib/hooks/data';
+import { useFloors, useLibrary, useProject, useRequirements, useRoom, useRoomReferences, useRooms, useSettings, useTranslations, useVersions } from '@/lib/hooks/data';
 import { buildGenerationPackage, defaultImageSelection } from '@/lib/ai/prompt';
 import { activeImageProvider } from '@/lib/ai/providers/registry';
 import { jobStore, useGenerationJob } from '@/lib/ai/jobs';
-import { runGeneration, savePromptOnly } from '@/lib/ai/generate';
+import { collectPromptImages, runGeneration, savePromptOnly } from '@/lib/ai/generate';
 import { describeError, ProviderError } from '@/lib/ai/http';
 import { defaultGenerationSettings } from '@/lib/db/factories';
 import { computeRoomShape, dimensionSummary } from '@/lib/geometry/room';
 import { roomTypeLabel } from '@/lib/labels';
+import { roomDisplayName } from '@/lib/names';
+import { downloadBlob, safeFilename } from '@/lib/download';
+import { useT } from '@/i18n';
 import { useUploadReferences } from '@/components/images/useUpload';
 import { ButtonLink } from '@/components/ui/Button';
 import { Select, Textarea } from '@/components/ui/Form';
 import { EmptyState, LoadingBlock, PageHeader } from '@/components/ui/Display';
+import { EnglishField } from '@/components/translate/EnglishField';
 import { RoomCover, RoomStatusLabel } from '../rooms/shared';
 import { VersionDetail } from '../versions/VersionDetail';
 import { BaseChooser, ConstraintList, DirectionSummary, ExtraImages, RenderSettings, RequirementPicker, RoomCheck, StudioSection } from './StudioSections';
 import { StudioPanel } from './StudioPanel';
+import { TranslationsSection } from './TranslationsSection';
+import { ImportResultDialog } from './ImportResultDialog';
 
 export function DesignStudioPage() {
   const { roomId } = useParams();
@@ -31,36 +38,38 @@ export function DesignStudioPage() {
 function StudioRoomPicker() {
   const rooms = useRooms();
   const settings = useSettings();
+  const t = useT();
+  const T = t.studio;
   const last = rooms?.find((r) => r.id === settings?.lastStudioRoomId);
   if (!rooms) return <LoadingBlock />;
   return (
     <div>
       <PageHeader
-        eyebrow="AI room redesign"
-        title="Design Studio"
-        description="Choose a room. Its own dimensions, architecture, requirements, images and direction are assembled into a redesign request."
+        eyebrow={T.eyebrow}
+        title={T.title}
+        description={T.pickerLead}
       />
       {last && (
         <Link
           to={`/studio/${last.id}`}
-          className="mb-10 flex items-center gap-5 rounded-md border border-line bg-surface p-4 transition-shadow hover:shadow-soft"
+          className="mb-10 flex items-center gap-4 rounded-md border border-line bg-surface p-4 transition-shadow hover:shadow-soft"
         >
-          <div className="w-40 shrink-0 overflow-hidden rounded-sm">
+          <div className="w-28 shrink-0 overflow-hidden rounded-sm sm:w-40">
             <RoomCover room={last} className="aspect-[3/2]" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="eyebrow">Continue last design</div>
-            <div className="display mt-1 text-[28px]">{last.name}</div>
+            <div className="eyebrow">{T.continueLast}</div>
+            <div className="display mt-1 truncate text-[24px] sm:text-[28px]">{roomDisplayName(last)}</div>
           </div>
-          <ArrowRight size={18} className="text-ink-3" />
+          <ArrowRight size={18} className="flip-rtl shrink-0 text-ink-3" />
         </Link>
       )}
       {rooms.length === 0 ? (
         <EmptyState
-          title="No rooms yet"
+          title={t.rooms.emptyTitle}
           action={
             <ButtonLink to="/rooms?new=1" variant="primary">
-              Add a room
+              {t.rooms.add}
             </ButtonLink>
           }
         />
@@ -77,9 +86,9 @@ function StudioRoomPicker() {
                 <RoomCover room={room} className="aspect-[16/9]" />
                 <div className="flex items-start justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <div className="display truncate text-[24px] group-hover:text-accent">{room.name}</div>
+                    <div className="display truncate text-[24px] group-hover:text-accent">{roomDisplayName(room)}</div>
                     <div className="mt-1 text-[12px] text-ink-3">
-                      {roomTypeLabel(room.type)} · {drawable ? dimensionSummary(room) : 'dimensions unknown'}
+                      {roomTypeLabel(room.type)} · {drawable ? dimensionSummary(room) : T.dimensionsUnknown}
                     </div>
                   </div>
                   <RoomStatusLabel status={room.status} />
@@ -95,6 +104,8 @@ function StudioRoomPicker() {
 
 function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: string | null }) {
   const navigate = useNavigate();
+  const t = useT();
+  const T = t.studio;
   const project = useProject();
   const room = useRoom(roomId);
   const rooms = useRooms() ?? [];
@@ -104,12 +115,15 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
   const versions = useVersions(roomId);
   const library = useLibrary() ?? [];
   const settings = useSettings();
+  const translations = useTranslations();
   const job = useGenerationJob(roomId);
   const { upload, busy: uploading } = useUploadReferences();
   const [gen, setGen] = useState<GenerationSettings | null>(null);
   const [excluded, setExcluded] = useState<ID[]>([]);
   const [promptOverride, setPromptOverride] = useState<string | null>(null);
   const [openVersion, setOpenVersion] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -166,12 +180,12 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
   );
 
   const basePkg = useMemo(() => {
-    if (!room || !ctxSettings || !references || !settings) return null;
+    if (!room || !ctxSettings || !references || !settings || !translations) return null;
     return buildGenerationPackage({
-      projectName: project?.name ?? 'Bait Khuzam',
-      location: project?.location ?? 'Riyadh, Saudi Arabia',
+      projectName: project?.name || 'Bait Khuzam',
+      location: project?.location || 'Riyadh, Saudi Arabia',
       room,
-      floorName: floors.find((f) => f.id === room.floorId)?.name ?? null,
+      floorName: floors.find((f) => f.id === room.floorId)?.name || null,
       requirements: includedReqs,
       references,
       libraryItems: library,
@@ -179,17 +193,19 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
       settings: ctxSettings,
       capabilities: active?.ready ? active.capabilities : null,
       houseGuidelines: settings.houseGuidelines,
+      translations,
     });
-  }, [room, ctxSettings, references, settings, project, floors, includedReqs, library, baseVersion, active?.ready, active?.capabilities]);
+  }, [room, ctxSettings, references, settings, translations, project, floors, includedReqs, library, baseVersion, active?.ready, active?.capabilities]);
 
   const pkg = useMemo(() => {
     if (!basePkg) return null;
     if (promptOverride === null) return basePkg;
-    return { ...basePkg, prompt: promptOverride, warnings: [...basePkg.warnings, { level: 'info' as const, message: 'Using your manually edited prompt.' }] };
-  }, [basePkg, promptOverride]);
+    return { ...basePkg, prompt: promptOverride, warnings: [...basePkg.warnings, { level: 'info' as const, message: T.usingEdited }] };
+  }, [basePkg, promptOverride, T]);
 
-  if (room === null) return <EmptyState title="Room not found" action={<ButtonLink to="/studio">Choose another room</ButtonLink>} />;
-  if (!room || !gen || !pkg || !requirements || !references || !versions || !settings) return <LoadingBlock label="Assembling the room's design package…" />;
+  if (room === null) return <EmptyState title={t.room.notFound} action={<ButtonLink to="/studio">{T.chooseAnother}</ButtonLink>} />;
+  if (!room || !gen || !pkg || !requirements || !references || !versions || !settings) return <LoadingBlock label={T.assembling} />;
+  const roomName = roomDisplayName(room);
 
   const set = (patch: Partial<GenerationSettings>) => setGen((g) => (g ? { ...g, ...patch } : g));
   const sitePhotos = references.filter((r) => r.kind === 'site-photo' && r.roomIds.includes(room.id) && r.requirementIds.length === 0);
@@ -232,20 +248,72 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
         onStage: (stage) => jobStore.update(room.id, { stage }),
       });
       jobStore.update(room.id, { status: 'done', versionIds: created.map((v) => v.id) });
-      toast.success(`${room.name}: ${created.length > 1 ? `${created.length} new versions` : `v${created[0].number}`} saved`, {
-        action: { label: 'View', onClick: () => (window.location.hash = `#/library/concepts/${created[0].id}`) },
+      toast.success(T.generatedSaved(roomName, created.length, created[0].number), {
+        action: { label: t.common.view, onClick: () => setOpenVersion(created[0].id) },
       });
     } catch (e) {
       const aborted =
         (e instanceof ProviderError && e.code === 'aborted') || (e instanceof DOMException && e.name === 'AbortError') || j.controller.signal.aborted;
       jobStore.update(room.id, aborted ? { status: 'cancelled' } : { status: 'error', error: describeError(e) });
-      if (!aborted) toast.error('Generation failed — nothing was saved', { description: describeError(e).message });
+      if (!aborted) toast.error(T.generationFailed, { description: describeError(e).message });
     }
   };
 
   const promptOnly = async () => {
     const v = await savePromptOnly(room, pkg, finalSettings(), references);
-    toast.success(`Saved prompt-only version v${v.number}`, { description: 'No image was generated.' });
+    toast.success(T.promptOnlySaved(v.number), { description: T.noImageGenerated });
+  };
+
+  const promptFileText = () =>
+    [
+      pkg.prompt,
+      '',
+      '---',
+      pkg.negativePrompt ? `Negative prompt / avoid: ${pkg.negativePrompt}` : '',
+      `Images (attach in this order):`,
+      ...[...pkg.images].sort((a, b) => a.index - b.index).map((p) => `${p.index}. ${p.label}${p.caption ? ` — ${p.caption}` : ''}`),
+    ]
+      .filter((l) => l !== null)
+      .join('\n');
+
+  const prepareImages = async () => {
+    setPreparing(true);
+    try {
+      return await collectPromptImages(room, pkg);
+    } catch (e) {
+      toast.error(T.imagesFailed, { description: describeError(e).message });
+      return null;
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const downloadImages = async () => {
+    const imgs = await prepareImages();
+    if (!imgs) return;
+    const entries: Record<string, Uint8Array> = { 'prompt.txt': strToU8(promptFileText()) };
+    for (const i of imgs) entries[i.name] = new Uint8Array(await i.blob.arrayBuffer());
+    const zip = zipSync(entries, { level: 0 });
+    downloadBlob(new Blob([zip as BlobPart], { type: 'application/zip' }), `${safeFilename(room.name || 'room')}-design-images.zip`);
+    toast.success(T.imagesDownloaded(imgs.length));
+  };
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function';
+  const shareImages = async () => {
+    const imgs = await prepareImages();
+    if (!imgs) return;
+    const files = imgs.map((i) => new File([i.blob], i.name, { type: i.blob.type || 'image/jpeg' }));
+    const data: ShareData = { text: pkg.prompt, files };
+    try {
+      if (!navigator.canShare(data)) {
+        toast.error(T.shareUnsupported);
+        return;
+      }
+      await navigator.share(data);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      toast.error(T.shareUnsupported, { description: describeError(e).message });
+    }
   };
 
   const openV = versions.find((v) => v.id === openVersion) ?? null;
@@ -255,35 +323,36 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
       <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
         <div className="min-w-0">
           <div className="eyebrow mb-2 flex items-center gap-1.5">
-            <Sparkles size={12} /> Design Studio
+            <Sparkles size={12} /> {T.title}
           </div>
-          <h1 className="display text-[44px] sm:text-[52px]">Redesign {room.name}</h1>
-          <p className="mt-2 max-w-[680px] text-[13px] leading-relaxed text-ink-3">
-            Everything below is specific to this room. Review it, choose how the image should look, then generate. Each result is saved as a new version.
-          </p>
+          <h1 className="display text-[36px] sm:text-[52px]">{T.redesignRoom(roomName)}</h1>
+          <p className="mt-2 max-w-[680px] text-[13px] leading-relaxed text-ink-3">{T.roomLead}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={room.id} onChange={(e) => navigate(`/studio/${e.target.value}`)} className="w-[220px]" aria-label="Switch room">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Select value={room.id} onChange={(e) => navigate(`/studio/${e.target.value}`)} className="min-w-0 flex-1 sm:w-[220px]" aria-label={T.switchRoom}>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {roomDisplayName(r)}
               </option>
             ))}
           </Select>
-          <ButtonLink to={`/rooms/${room.id}/overview`}>Open room</ButtonLink>
+          <ButtonLink to={`/rooms/${room.id}/overview`}>{T.openRoom}</ButtonLink>
         </div>
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex flex-col gap-8">
-          <StudioSection n={1} title="Room check" description="The room facts sent with the request. Unknown values are declared as unknown — never guessed.">
+        <div className="flex min-w-0 flex-col gap-8">
+          {(pkg.untranslated.length > 0 || pkg.translationsUsed.length > 0) && (
+            <TranslationsSection untranslated={pkg.untranslated} used={pkg.translationsUsed} textProvider={settings.textProvider} />
+          )}
+          <StudioSection n={1} title={T.s1} description={T.s1Lead}>
             <RoomCheck room={room} sitePhotoCount={sitePhotos.length} />
           </StudioSection>
 
           <StudioSection
             n={2}
-            title="Photo to redesign"
-            description="The actual room photo is sent first, so the model keeps its viewpoint, windows and doors."
+            title={T.s2}
+            description={T.s2Lead}
           >
             <BaseChooser
               sitePhotos={sitePhotos}
@@ -300,11 +369,11 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
 
           <StudioSection
             n={3}
-            title="Requirements"
-            description="All active requirements are included. Untick any to leave them out of this version; images stay tied to their requirement."
+            title={T.s3}
+            description={T.s3Lead}
             aside={
               <Link to={`/rooms/${room.id}/requirements`} className="text-[12px] text-ink-3 hover:text-ink">
-                Edit requirements
+                {T.editRequirements}
               </Link>
             }
           >
@@ -319,31 +388,33 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
             />
           </StudioSection>
 
-          <StudioSection n={4} title="More images" description="Other site photos, wall photos, direction references and inspiration linked to this room.">
+          <StudioSection n={4} title={T.s4} description={T.s4Lead}>
             <ExtraImages candidates={extraCandidates} included={gen.includedReferenceIds} onToggle={toggleImage} baseId={gen.baseReferenceId} />
           </StudioSection>
 
-          <StudioSection n={5} title="Design direction" description="This room's own direction. Nothing is inherited from other rooms.">
+          <StudioSection n={5} title={T.s5} description={T.s5Lead}>
             <DirectionSummary room={room} override={gen.directionOverride} onOverride={(v) => set({ directionOverride: v })} />
           </StudioSection>
 
-          <StudioSection n={6} title="Image settings">
+          <StudioSection n={6} title={T.s6}>
             <RenderSettings room={room} settings={gen} onChange={set} caps={active?.ready ? active.capabilities : null} />
           </StudioSection>
 
-          <StudioSection n={7} title="Instructions for this version" description="Optional free text, e.g. what to change compared with the last concept.">
+          <StudioSection n={7} title={T.s7} description={T.s7Lead}>
             <Textarea
               value={gen.instructions}
               onChange={(e) => set({ instructions: e.target.value })}
               minRows={3}
-              placeholder="e.g. Make the sofa lower and add a wool rug; keep everything else."
+              placeholder={T.s7Placeholder}
+              dir="auto"
             />
+            <EnglishField source={gen.instructions} className="mt-2" />
           </StudioSection>
 
           <StudioSection
             n={8}
-            title="Do not change"
-            description="Generated from confirmed architecture and your constraints. Untick an item only if you explicitly want it changed in this version."
+            title={T.s8}
+            description={T.s8Lead}
           >
             <ConstraintList
               items={pkg.constraints}
@@ -371,10 +442,24 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
             recent={versions}
             onOpenVersion={setOpenVersion}
             onDismissJob={() => jobStore.clear(room.id)}
+            onDownloadImages={downloadImages}
+            onShare={shareImages}
+            canShare={canShare}
+            onImport={() => setImportOpen(true)}
+            preparingImages={preparing}
           />
         </aside>
       </div>
       <VersionDetail version={openV} room={room} onClose={() => setOpenVersion(null)} />
+      <ImportResultDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        room={room}
+        pkg={pkg}
+        settings={finalSettings()}
+        references={references}
+        onSaved={(v) => setOpenVersion(v.id)}
+      />
     </div>
   );
 }

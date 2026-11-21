@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowDown, ArrowUp, Check, Copy, FileText, Pencil, RotateCcw, Settings, Sparkles, Square, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Copy, Download, FileText, ImageDown, Pencil, RotateCcw, Settings, Share2, Sparkles, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DesignVersion } from '@/lib/types';
 import type { GenerationPackage, PlannedImage } from '@/lib/ai/prompt';
 import type { ActiveImageProvider } from '@/lib/ai/providers/registry';
 import type { GenerationJob } from '@/lib/ai/jobs';
-import { IMAGE_ROLE_LABEL } from '@/lib/labels';
-import { formatDuration } from '@/lib/format';
+import { imageRoleLabel } from '@/lib/labels';
+import { fmtDuration } from '@/i18n/format';
+import { num } from '@/i18n/format';
+import { useT } from '@/i18n';
 import { copyText } from '@/lib/download';
 import { ImageThumb } from '@/components/images/ImageThumb';
 import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
@@ -15,13 +17,6 @@ import { Callout, Spinner } from '@/components/ui/Display';
 import { Dialog } from '@/components/ui/Overlay';
 import { Textarea } from '@/components/ui/Form';
 import { cn } from '@/components/ui/cn';
-
-const PRESERVE_TEXT: Record<string, string> = {
-  strong: 'Keeps the structure of your photo closely',
-  moderate: 'Usually keeps composition — not guaranteed',
-  limited: 'Architecture may drift',
-  none: 'Cannot see your photos',
-};
 
 export function PromptDialog({
   open,
@@ -36,6 +31,8 @@ export function PromptDialog({
   override: string | null;
   onSave: (v: string | null) => void;
 }) {
+  const t = useT();
+  const T = t.studio;
   const [text, setText] = useState(override ?? generated);
   useEffect(() => {
     if (open) setText(override ?? generated);
@@ -45,8 +42,8 @@ export function PromptDialog({
       open={open}
       onOpenChange={onOpenChange}
       size="xl"
-      title="Prompt"
-      description="This is exactly what will be sent with the images. You can edit it for this generation; the edited text is saved with the version."
+      title={T.promptTitle}
+      description={T.promptDialogLead}
       footer={
         <>
           {override !== null && (
@@ -57,19 +54,19 @@ export function PromptDialog({
                 onSave(null);
                 onOpenChange(false);
               }}
-              className="mr-auto"
+              className="me-auto"
             >
-              Use generated prompt
+              {T.useGenerated}
             </Button>
           )}
           <Button
             icon={Copy}
             onClick={async () => {
-              if (await copyText(text)) toast.success('Prompt copied');
-              else toast.error('Could not copy');
+              if (await copyText(text)) toast.success(T.promptCopied);
+              else toast.error(t.common.copyFailed);
             }}
           >
-            Copy
+            {t.common.copy}
           </Button>
           <Button
             variant="primary"
@@ -78,7 +75,7 @@ export function PromptDialog({
               onOpenChange(false);
             }}
           >
-            {text.trim() === generated.trim() ? 'Close' : 'Use edited prompt'}
+            {text.trim() === generated.trim() ? t.common.close : T.useEdited}
           </Button>
         </>
       }
@@ -89,9 +86,11 @@ export function PromptDialog({
         minRows={18}
         maxRows={40}
         className="font-mono text-[12px] leading-relaxed"
-        aria-label="Prompt text"
+        aria-label={T.promptTitle}
+        dir="ltr"
+        lang="en"
       />
-      <p className="mt-2 text-[11.5px] text-ink-3 tabular">{text.length.toLocaleString()} characters</p>
+      <p className="mt-2 text-[11.5px] text-ink-3 tabular">{T.characters(text.length)}</p>
     </Dialog>
   );
 }
@@ -110,6 +109,11 @@ export function StudioPanel({
   recent,
   onOpenVersion,
   onDismissJob,
+  onDownloadImages,
+  onShare,
+  canShare,
+  onImport,
+  preparingImages,
 }: {
   active: ActiveImageProvider | null;
   pkg: GenerationPackage;
@@ -124,7 +128,14 @@ export function StudioPanel({
   recent: DesignVersion[];
   onOpenVersion: (id: string) => void;
   onDismissJob: () => void;
+  onDownloadImages: () => void;
+  onShare: () => void;
+  canShare: boolean;
+  onImport: () => void;
+  preparingImages: boolean;
 }) {
+  const t = useT();
+  const T = t.studio;
   const [promptOpen, setPromptOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const running = job?.status === 'running';
@@ -145,8 +156,8 @@ export function StudioPanel({
     <div className="flex flex-col gap-4">
       <div className="rounded-md border border-line bg-surface p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="eyebrow">Image generation</span>
-          <Link to="/settings" className="text-ink-3 hover:text-ink" aria-label="Image generation settings">
+          <span className="eyebrow">{T.imageGeneration}</span>
+          <Link to="/settings" className="touch-target text-ink-3 hover:text-ink" aria-label={T.imageGenerationSettings}>
             <Settings size={14} />
           </Link>
         </div>
@@ -156,19 +167,19 @@ export function StudioPanel({
             <div className="text-[12px] text-ink-3">{active.model}</div>
             <ul className="mt-3 flex flex-col gap-1 text-[11.5px] text-ink-2">
               <li>
-                {active.capabilities.imageInput
-                  ? `Accepts up to ${active.capabilities.maxImages} image${active.capabilities.maxImages === 1 ? '' : 's'}`
-                  : 'Text only — photos cannot be sent'}
+                {active.capabilities.imageInput ? T.acceptsImages(active.capabilities.maxImages) : T.textOnly}
               </li>
-              <li>{PRESERVE_TEXT[active.capabilities.preservation]}</li>
+              <li>{T.preserve[active.capabilities.preservation]}</li>
             </ul>
           </>
         ) : (
           <Callout tone="neutral" className="!px-3 !py-2.5">
-            {active ? active.problem : 'Image generation is not set up.'} The prompt builder still works: copy the prompt or save it as a prompt-only version.
+            <div className="font-medium text-ink">{T.noApiTitle}</div>
+            <div className="mt-1">{T.noApiBody}</div>
+            {active?.problem && <div className="mt-1 text-[11.5px] text-ink-3">{active.problem}</div>}
             <div className="mt-2">
               <ButtonLink to="/settings" size="xs" variant="secondary">
-                Set up a provider
+                {T.setUpProvider}
               </ButtonLink>
             </div>
           </Callout>
@@ -178,22 +189,22 @@ export function StudioPanel({
       <div className="rounded-md border border-line bg-surface p-4">
         <div className="mb-3 grid grid-cols-3 gap-2 text-center">
           <div>
-            <div className="display text-[26px] leading-none tabular">{pkg.activeRequirements.length}</div>
-            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">Requirements</div>
+            <div className="display text-[26px] leading-none tabular">{num(pkg.activeRequirements.length)}</div>
+            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">{T.statRequirements}</div>
           </div>
           <div>
-            <div className="display text-[26px] leading-none tabular">{must}</div>
-            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">Must have</div>
+            <div className="display text-[26px] leading-none tabular">{num(must)}</div>
+            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">{T.statMust}</div>
           </div>
           <div>
-            <div className="display text-[26px] leading-none tabular">{sent.length}</div>
-            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">Images sent</div>
+            <div className="display text-[26px] leading-none tabular">{num(active?.ready ? sent.length : pkg.images.length)}</div>
+            <div className="mt-1 text-[10.5px] uppercase tracking-wider text-ink-3">{active?.ready ? T.statSent : T.statImages}</div>
           </div>
         </div>
 
         {sent.length > 0 && (
           <div className="mb-3">
-            <div className="eyebrow mb-1.5">Sending order</div>
+            <div className="eyebrow mb-1.5">{T.sendingOrder}</div>
             <ol className="flex flex-col gap-1">
               {sent.map((p, i) => (
                 <OrderRow key={p.key} p={p} first={i === 0} last={i === sent.length - 1} onMove={(d) => onMove(p.key, d)} />
@@ -203,11 +214,9 @@ export function StudioPanel({
         )}
         {described.length > 0 &&
           (active?.ready ? (
-            <p className="mb-3 text-[11.5px] text-ink-3">{described.length} more image(s) will be described in text.</p>
+            <p className="mb-3 text-[11.5px] text-ink-3">{T.describedInText(described.length)}</p>
           ) : (
-            <p className="mb-3 text-[11.5px] text-ink-3">
-              {described.length} image(s) selected. The prompt numbers them so you can attach them in order if you use it elsewhere.
-            </p>
+            <p className="mb-3 text-[11.5px] text-ink-3">{T.numberedForElsewhere(described.length)}</p>
           ))}
 
         {pkg.warnings.length > 0 && (
@@ -239,44 +248,57 @@ export function StudioPanel({
                 <Spinner size={15} /> {job?.stage}
               </div>
               <div className="mt-1 text-[11.5px] text-ink-3 tabular">
-                {formatDuration(now - (job?.startedAt ?? now))} elapsed · image models often take 30–120 s. You can keep working elsewhere.
+                {T.elapsed(fmtDuration(now - (job?.startedAt ?? now)))}
               </div>
               <Button size="sm" variant="ghost" icon={Square} className="mt-2" onClick={onCancel}>
-                Cancel
+                {t.common.cancel}
               </Button>
             </div>
-          ) : (
-            <Button
-              variant="primary"
-              size="lg"
-              icon={Sparkles}
-              disabled={!ready}
-              onClick={onGenerate}
-              title={!active?.ready ? 'Set up an image provider in Settings' : blocker?.message}
-            >
-              Generate design
+          ) : active?.ready ? (
+            <Button variant="primary" size="lg" icon={Sparkles} disabled={!ready} onClick={onGenerate} title={blocker?.message}>
+              {T.generate}
             </Button>
-          )}
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
             <Button
-              size="sm"
+              size={active?.ready ? 'sm' : 'md'}
+              variant={active?.ready ? 'secondary' : 'primary'}
               icon={Copy}
+              disabled={!!pkg.untranslated.length}
+              title={pkg.untranslated.length ? T.translateFirst : undefined}
               onClick={async () => {
-                if (await copyText(pkg.prompt)) toast.success('Prompt copied');
-                else toast.error('Could not copy');
+                if (await copyText(pkg.prompt)) toast.success(T.promptCopied);
+                else toast.error(t.common.copyFailed);
               }}
             >
-              Copy prompt
+              {T.copyPrompt}
             </Button>
-            <Button size="sm" icon={promptOverride !== null ? Pencil : FileText} onClick={() => setPromptOpen(true)}>
-              {promptOverride !== null ? 'Edited prompt' : 'View prompt'}
+            <Button size={active?.ready ? 'sm' : 'md'} icon={promptOverride !== null ? Pencil : FileText} onClick={() => setPromptOpen(true)}>
+              {promptOverride !== null ? T.editedPrompt : T.viewPrompt}
             </Button>
           </div>
-          <Button size="sm" variant="ghost" onClick={onSavePromptOnly} disabled={running}>
-            Save as prompt-only version
+          {pkg.images.length > 0 && (
+            <div className={cn('grid gap-2', canShare ? 'grid-cols-2' : 'grid-cols-1')}>
+              <Button size="sm" icon={ImageDown} loading={preparingImages} onClick={onDownloadImages}>
+                {T.downloadImages}
+              </Button>
+              {canShare && (
+                <Button size="sm" icon={Share2} disabled={preparingImages || !!pkg.untranslated.length} onClick={onShare}>
+                  {T.share}
+                </Button>
+              )}
+            </div>
+          )}
+          <Button size="sm" icon={Download} variant={active?.ready ? 'ghost' : 'secondary'} onClick={onImport} disabled={running || !!pkg.untranslated.length}>
+            {T.importGenerated}
           </Button>
+          <Button size="sm" variant="ghost" onClick={onSavePromptOnly} disabled={running}>
+            {T.savePromptOnly}
+          </Button>
+          {!active?.ready && <p className="text-[11.5px] leading-relaxed text-ink-3">{T.noApiSteps}</p>}
           <p className="text-[11px] text-ink-4 tabular">
-            {pkg.prompt.length.toLocaleString()} characters{pkg.truncated ? ' · shortened to fit the model' : ''}
+            {T.characters(pkg.prompt.length)}
+            {pkg.truncated ? ` · ${T.shortened}` : ''}
           </p>
         </div>
       </div>
@@ -287,11 +309,11 @@ export function StudioPanel({
           title={job.error.message}
           action={
             <Button size="xs" variant="ghost" icon={X} onClick={onDismissJob}>
-              Dismiss
+              {t.common.dismiss}
             </Button>
           }
         >
-          {job.error.hint ?? 'Nothing was saved. Adjust the settings and try again.'}
+          {job.error.hint ?? T.nothingSaved}
         </Callout>
       )}
       {job?.status === 'cancelled' && (
@@ -299,26 +321,26 @@ export function StudioPanel({
           tone="neutral"
           action={
             <Button size="xs" variant="ghost" icon={X} onClick={onDismissJob}>
-              Dismiss
+              {t.common.dismiss}
             </Button>
           }
         >
-          Generation cancelled. Nothing was saved.
+          {T.cancelledNothingSaved}
         </Callout>
       )}
       {jobVersions.length > 0 && (
         <div className="rounded-md border border-ok/40 bg-ok-soft/40 p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[13px] font-medium text-ok">
-              <Check size={14} /> Saved as {jobVersions.map((v) => `v${v.number}`).join(', ')}
+              <Check size={14} /> {T.savedAs(jobVersions.map((v) => `v${num(v.number)}`).join('، '))}
             </span>
-            <IconButton icon={X} label="Dismiss" size="xs" onClick={onDismissJob} />
+            <IconButton icon={X} label={t.common.dismiss} size="xs" onClick={onDismissJob} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             {jobVersions.map((v) => (
-              <button key={v.id} type="button" onClick={() => onOpenVersion(v.id)} className="overflow-hidden rounded-sm border border-line text-left">
+              <button key={v.id} type="button" onClick={() => onOpenVersion(v.id)} className="overflow-hidden rounded-sm border border-line text-start">
                 <ImageThumb imageId={v.imageId} className="aspect-[3/2] w-full" />
-                <div className="px-2 py-1 text-[11.5px]">Review v{v.number}</div>
+                <div className="px-2 py-1 text-[11.5px]">{T.review(v.number)}</div>
               </button>
             ))}
           </div>
@@ -327,10 +349,10 @@ export function StudioPanel({
 
       {recent.length > 0 && (
         <div className="rounded-md border border-line bg-surface p-4">
-          <div className="eyebrow mb-2">Recent versions</div>
+          <div className="eyebrow mb-2">{T.recentVersions}</div>
           <div className="grid grid-cols-3 gap-2">
             {recent.slice(0, 6).map((v) => (
-              <button key={v.id} type="button" onClick={() => onOpenVersion(v.id)} className="text-left">
+              <button key={v.id} type="button" onClick={() => onOpenVersion(v.id)} className="text-start">
                 {v.imageId ? (
                   <ImageThumb imageId={v.imageId} className="aspect-square w-full rounded-sm border border-line" />
                 ) : (
@@ -338,7 +360,7 @@ export function StudioPanel({
                     <FileText size={14} />
                   </div>
                 )}
-                <div className="mt-0.5 text-[11px] text-ink-3">v{v.number}</div>
+                <div className="mt-0.5 text-[11px] text-ink-3">v{num(v.number)}</div>
               </button>
             ))}
           </div>
@@ -351,22 +373,23 @@ export function StudioPanel({
 }
 
 function OrderRow({ p, first, last, onMove }: { p: PlannedImage; first: boolean; last: boolean; onMove: (d: -1 | 1) => void }) {
+  const T = useT().studio;
   return (
     <li className="flex items-center gap-2">
-      <span className="w-4 text-right text-[11px] text-ink-4 tabular">{p.index}</span>
+      <span className="w-4 text-end text-[11px] text-ink-4 tabular">{num(p.index)}</span>
       {p.imageId ? (
         <ImageThumb imageId={p.imageId} className="h-9 w-12 shrink-0 rounded-[2px]" />
       ) : (
-        <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-[2px] bg-mist text-[9px] text-ink-3">PLAN</div>
+        <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-[2px] bg-mist text-[9px] text-ink-3">{T.planTag}</div>
       )}
       <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2" title={p.label}>
-        {IMAGE_ROLE_LABEL[p.role]}
+        {imageRoleLabel(p.role)}
         {p.requirementTitle ? ` · ${p.requirementTitle}` : ''}
-        {p.intent === 'avoid' ? ' · avoid' : ''}
+        {p.intent === 'avoid' ? ` · ${T.avoidTag}` : ''}
       </span>
       <IconButton
         icon={ArrowUp}
-        label="Move earlier"
+        label={T.moveEarlier}
         size="xs"
         disabled={first || p.role === 'base-photo' || p.role === 'previous-version'}
         onClick={() => onMove(-1)}
@@ -374,7 +397,7 @@ function OrderRow({ p, first, last, onMove }: { p: PlannedImage; first: boolean;
       />
       <IconButton
         icon={ArrowDown}
-        label="Move later"
+        label={T.moveLater}
         size="xs"
         disabled={last || p.role === 'base-photo' || p.role === 'previous-version'}
         onClick={() => onMove(1)}

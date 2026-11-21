@@ -48,16 +48,17 @@ function inputRecords(pkg: GenerationPackage): VersionInputImage[] {
 export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
   const { room, pkg, settings, imageSettings, signal, onStage } = input;
   const active = activeImageProvider(imageSettings);
-  if (!active) throw new ProviderError('Image generation is not set up.', { hint: 'Choose an image provider in Settings.' });
-  if (!active.ready) throw new ProviderError(active.problem ?? 'Image generation is not set up.', { hint: 'Open Settings → Image generation.' });
+  const T = tr().gen;
+  if (!active) throw new ProviderError(T.notSetUp, { hint: T.notSetUpHint });
+  if (!active.ready) throw new ProviderError(active.problem ?? T.notSetUp, { hint: T.notSetUpHint });
   const blocker = pkg.warnings.find((w) => w.level === 'blocker');
   if (blocker) throw new ProviderError(blocker.message);
 
-  onStage?.('Preparing images…');
+  onStage?.(T.preparing);
   const images: ImageInput[] = [];
   const maxEdge = imageSettings.options.maxUploadEdge || 2048;
   for (const p of pkg.images.filter((x) => x.sent).sort((a, b) => a.index - b.index)) {
-    if (signal.aborted) throw new ProviderError('Generation cancelled.', { code: 'aborted' });
+    if (signal.aborted) throw new ProviderError(T.cancelled, { code: 'aborted' });
     if (p.role === 'layout-plan') {
       const blob = await renderPlanPng(room, 1536, 1024);
       images.push({ blob, mime: 'image/png', label: p.label, role: p.role });
@@ -70,7 +71,7 @@ export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
     images.push({ blob, mime: 'image/jpeg', label: p.label, role: p.role });
   }
 
-  onStage?.(`Generating with ${active.provider.label}…`);
+  onStage?.(T.generatingWith(active.provider.label));
   const t0 = performance.now();
   const result = await active.provider.generate(
     { prompt: pkg.prompt, images, aspect: settings.aspect, quality: settings.quality, variations: settings.variations, negativePrompt: pkg.negativePrompt },
@@ -78,9 +79,9 @@ export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
     signal,
   );
   const durationMs = Math.round(performance.now() - t0);
-  if (!result.images.length) throw new ProviderError('The provider returned no images.');
+  if (!result.images.length) throw new ProviderError(T.noImages);
 
-  onStage?.('Saving the new version…');
+  onStage?.(T.saving);
   const fresh = await db.rooms.get(room.id);
   const roomForSnapshot = fresh ?? room;
   const versions: DesignVersion[] = [];
@@ -116,6 +117,7 @@ export async function runGeneration(input: RunInput): Promise<DesignVersion[]> {
       roomSnapshot: snapshotRoom(roomForSnapshot),
       doNotChange: pkg.constraints.filter((c) => c.enabled).map((c) => c.text),
       basedOnVersionId: settings.baseVersionId,
+      translations: pkg.translationsUsed,
       notes: '',
     });
     await db.references.update(ref.id, { versionIds: [version.id], title: `${room.name} · v${version.number}` });
@@ -141,7 +143,8 @@ export async function savePromptOnly(room: Room, pkg: GenerationPackage, setting
     roomSnapshot: snapshotRoom(room),
     doNotChange: pkg.constraints.filter((c) => c.enabled).map((c) => c.text),
     basedOnVersionId: settings.baseVersionId,
-    notes: 'Prompt saved without generating an image.',
+    translations: pkg.translationsUsed,
+    notes: tr().gen.promptOnlyNote,
   });
   await rememberSettings(room.id, settings);
   return v;
@@ -150,4 +153,81 @@ export async function savePromptOnly(room: Room, pkg: GenerationPackage, setting
 async function rememberSettings(roomId: string, settings: GenerationSettings) {
   await updateRoom(roomId, (d) => void (d.lastGeneration = { ...structuredClone(settings), promptOverride: null, instructions: '', extraConstraints: '' }));
   await updateSettings((s) => void (s.lastStudioRoomId = roomId));
+}
+
+/**
+ * Save an image made with an outside tool (ChatGPT, Midjourney, a designer…)
+ * from this room's prompt as a new version. It keeps the prompt, settings,
+ * input images, requirement and dimension snapshots and the Arabic → English
+ * wording, and is labelled "Imported" — never "Generated".
+ */
+export async function importExternalResult(input: {
+  room: Room;
+  pkg: GenerationPackage;
+  settings: GenerationSettings;
+  references: Reference[];
+  file: File;
+  tool: string;
+  title: string;
+  notes: string;
+}): Promise<DesignVersion> {
+  const { room, pkg, settings, file } = input;
+  const fresh = (await db.rooms.get(room.id)) ?? room;
+  const { ref, image } = await addReferenceFromBlob(file, file.name, {
+    kind: 'generated',
+    origin: 'imported',
+    roomIds: [room.id],
+    title: input.title || file.name,
+  });
+  const version = await createVersion(room.id, {
+    title: input.title,
+    status: 'under-review',
+    origin: 'imported',
+    imageId: image.id,
+    referenceId: ref.id,
+    prompt: pkg.prompt,
+    settings: structuredClone(settings),
+    provider: input.tool.trim()
+      ? {
+          providerId: 'external',
+          providerLabel: input.tool.trim(),
+          model: '',
+          endpoint: '',
+          params: {},
+          revisedPrompt: null,
+          textResponse: null,
+          durationMs: null,
+        }
+      : null,
+    inputImages: inputRecords(pkg).map((i) => ({ ...i, sent: false })),
+    requirementsSnapshot: snapshotRequirements(pkg.activeRequirements, input.references),
+    roomSnapshot: snapshotRoom(fresh),
+    doNotChange: pkg.constraints.filter((c) => c.enabled).map((c) => c.text),
+    basedOnVersionId: settings.baseVersionId,
+    translations: pkg.translationsUsed,
+    notes: input.notes,
+  });
+  await db.references.update(ref.id, { versionIds: [version.id] });
+  await rememberSettings(room.id, settings);
+  return version;
+}
+
+/** The images of a package, numbered in prompt order, for use in another tool. */
+export async function collectPromptImages(room: Room, pkg: GenerationPackage): Promise<{ name: string; blob: Blob }[]> {
+  const out: { name: string; blob: Blob }[] = [];
+  const list = [...pkg.images].sort((a, b) => a.index - b.index);
+  for (const p of list) {
+    const label = String(p.index).padStart(2, '0');
+    const slug = p.role.replace(/[^a-z-]/g, '');
+    if (p.role === 'layout-plan') {
+      out.push({ name: `${label}-${slug}.png`, blob: await renderPlanPng(room, 1536, 1024) });
+      continue;
+    }
+    if (!p.imageId) continue;
+    const blob = await getDisplayBlob(p.imageId);
+    if (!blob) throw new ProviderError(tr().studio.imageMissing(p.caption || p.label), { hint: tr().studio.imageMissingHint });
+    const jpeg = await prepareForUpload(blob, 2048, 'image/jpeg');
+    out.push({ name: `${label}-${slug}.jpg`, blob: jpeg });
+  }
+  return out;
 }
