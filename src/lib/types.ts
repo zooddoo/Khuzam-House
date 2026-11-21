@@ -538,6 +538,8 @@ export interface DesignVersion {
   roomSnapshot: RoomSnapshot;
   doNotChange: string[];
   basedOnVersionId: ID | null;
+  /** Arabic texts used in this design and the English wording that went into the prompt. */
+  translations?: { source: string; en: string }[];
   notes: string;
   createdAt: ISODate;
   updatedAt: ISODate;

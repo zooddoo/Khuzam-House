@@ -1,8 +1,12 @@
-import type { ArchElement, DesignVersion, GenerationSettings, ID, ImageIntent, ImageRole, LibraryItem, Reference, Requirement, Room } from '../types';
+import type { ArchElement, DesignVersion, GenerationSettings, ID, ImageIntent, ImageRole, LibraryItem, Reference, Requirement, Room, Translation } from '../types';
 import { computeRoomShape, effectiveWallHeight, findSegment, type RoomShapeResult } from '../geometry/room';
 import { normalizeAngle, segmentDistance } from '../geometry/polygon';
 import { furniturePolygon } from '../layout/validate';
 import { CAMERA_ANGLES, categoryLabel, elementTypeMeta, IMAGE_ROLE_LABEL, LENSES, REALISM, roomTypeLabel, spaceKind, TIMES_OF_DAY } from '../labels';
+import { msgs, tr, type Messages } from '../../i18n/messages';
+import { withLang } from '../../i18n/prefs';
+import { hasArabic } from '../../i18n/arabic';
+import { englishFor, normalizeSource } from '../translate/core';
 import { isKnown } from '../units';
 import { directionIsEmpty } from '../db/factories';
 import type { ProviderCapabilities } from './providers/types';
@@ -44,6 +48,10 @@ export interface PackageWarning {
 
 export interface GenerationPackage {
   prompt: string;
+  /** Arabic texts used in this design that have no English yet (the prompt cannot be fully English). */
+  untranslated: { source: string }[];
+  /** Arabic texts and the English that replaced them in the prompt. */
+  translationsUsed: { source: string; en: string }[];
   images: PlannedImage[];
   constraints: ConstraintItem[];
   warnings: PackageWarning[];
@@ -65,6 +73,8 @@ export interface PackageContext {
   /** Null when no image provider is configured (prompt-only). */
   capabilities: ProviderCapabilities | null;
   houseGuidelines: string;
+  /** English wording for Arabic texts (translation memory). */
+  translations?: Map<string, Translation>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -218,7 +228,67 @@ interface Section {
   text: string;
 }
 
+/** Interface-language messages for warnings (the prompt itself is always English). */
+let UI: Messages = msgs('en');
+
+/**
+ * Build the design package. The prompt is always English: every Arabic text
+ * is replaced by its English wording from the translation memory; texts
+ * without English are listed in `untranslated` (and block generation).
+ */
 export function buildGenerationPackage(ctx: PackageContext): GenerationPackage {
+  UI = tr();
+  const english = englishContext(ctx);
+  const pkg = withLang('en', () => buildEnglishPackage(english.ctx));
+  pkg.untranslated = english.missing.map((source) => ({ source }));
+  pkg.translationsUsed = english.used;
+  if (english.missing.length) pkg.warnings.unshift({ level: 'blocker', message: UI.studioWarn.untranslated(english.missing.length) });
+  return pkg;
+}
+
+const SKIP_KEYS = new Set(['id', 'imageId', 'roomId', 'hex', 'createdAt', 'updatedAt', 'nameAr', 'preliminaryConceptAr', 'labelAr']);
+
+/** Copy of the context with Arabic text replaced by its English wording. */
+function englishContext(ctx: PackageContext): { ctx: PackageContext; missing: string[]; used: { source: string; en: string }[] } {
+  const memory = ctx.translations ?? new Map<string, Translation>();
+  const missing = new Set<string>();
+  const used = new Map<string, string>();
+  const conv = (s: string): string => {
+    if (!hasArabic(s)) return s;
+    const en = englishFor(s, memory);
+    if (en === null) {
+      missing.add(normalizeSource(s));
+      return s;
+    }
+    used.set(normalizeSource(s), en);
+    return en;
+  };
+  const deep = <T>(v: T, key = ''): T => {
+    if (typeof v === 'string') return (SKIP_KEYS.has(key) ? v : conv(v)) as T;
+    if (Array.isArray(v)) return v.map((x) => deep(x, key)) as T;
+    if (v && typeof v === 'object' && !(v instanceof Map) && !(v instanceof Blob)) {
+      const out: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v)) out[k] = deep(x, k);
+      return out as T;
+    }
+    return v;
+  };
+  const room = { ...ctx.room, name: ctx.room.name?.trim() || ctx.room.nameAr || '' };
+  const out: PackageContext = {
+    ...ctx,
+    room: deep(room),
+    floorName: ctx.floorName ? conv(ctx.floorName) : null,
+    requirements: deep(ctx.requirements),
+    references: deep(ctx.references),
+    libraryItems: deep(ctx.libraryItems),
+    baseVersion: ctx.baseVersion,
+    settings: deep(ctx.settings),
+    houseGuidelines: conv(ctx.houseGuidelines),
+  };
+  return { ctx: out, missing: [...missing], used: [...used.entries()].map(([source, en]) => ({ source, en })) };
+}
+
+function buildEnglishPackage(ctx: PackageContext): GenerationPackage {
   const { room, settings, capabilities: caps } = ctx;
   const kind = spaceKind(room.type);
   const shape = computeRoomShape(room);
@@ -337,26 +407,26 @@ export function buildGenerationPackage(ctx: PackageContext): GenerationPackage {
   if (caps && !caps.imageInput && planned.length) {
     warnings.push({
       level: 'warning',
-      message: `The selected model can't take images. ${planned.length} image(s) will only be described in text, so the result won't match your actual room.`,
+      message: UI.studioWarn.noImages(planned.length),
     });
   } else if (caps && notSent.length) {
     warnings.push({
       level: 'warning',
-      message: `${notSent.length} image(s) exceed the model's limit of ${caps.maxImages} and will be described in text instead. Reorder images to choose which are sent.`,
+      message: UI.studioWarn.overLimit(notSent.length, caps.maxImages),
     });
   }
   const hasBase = (iterating && planned[0]?.sent) || planned.some((p) => p.role === 'base-photo' && p.sent);
   if (!baseRef && !iterating) {
     warnings.push({
       level: 'warning',
-      message: 'No photo of the actual room is selected. The model will imagine the room, so architecture and proportions will not match your house.',
+      message: UI.studioWarn.noPhoto,
     });
   }
   if (caps?.requiresBaseImage && !hasBase) {
-    warnings.push({ level: 'blocker', message: 'This model needs a room photo to redesign. Choose a “Photo to redesign”.' });
+    warnings.push({ level: 'blocker', message: UI.studioWarn.needsPhoto });
   }
   if (caps && !caps.textToImage && !hasBase) {
-    warnings.push({ level: 'blocker', message: 'This model only edits existing images. Select a site photo or a previous concept.' });
+    warnings.push({ level: 'blocker', message: UI.studioWarn.editOnly });
   }
 
   /* ---------- constraints (DO NOT CHANGE) ---------- */
@@ -460,7 +530,7 @@ export function buildGenerationPackage(ctx: PackageContext): GenerationPackage {
   };
   const reqSection: Section = { id: 'requirements', priority: 0, text: reqText(false) };
   if (reqSection.text) sections.push(reqSection);
-  else warnings.push({ level: 'info', message: 'No requirements are included. The design will follow the direction and images only.' });
+  else warnings.push({ level: 'info', message: UI.studioWarn.noReqs });
 
   const avoidImages = planned.filter((p) => p.intent === 'avoid' && !p.requirementId);
   if (avoids.length || avoidImages.length) {
@@ -568,12 +638,12 @@ export function buildGenerationPackage(ctx: PackageContext): GenerationPackage {
   if (truncated)
     warnings.push({
       level: 'warning',
-      message: `The prompt was shortened to fit this model's limit of ${limit.toLocaleString()} characters. Lower-priority details were left out.`,
+      message: UI.studioWarn.shortened(limit),
     });
 
   if (settings.promptOverride !== null && settings.promptOverride.trim()) {
     prompt = settings.promptOverride.slice(0, limit);
-    warnings.push({ level: 'info', message: 'You are using a manually edited prompt for this generation.' });
+    warnings.push({ level: 'info', message: UI.studioWarn.manualPrompt });
   }
 
   const negativePrompt = joinNonEmpty(
@@ -589,6 +659,8 @@ export function buildGenerationPackage(ctx: PackageContext): GenerationPackage {
     activeRequirements: active,
     truncated,
     negativePrompt,
+    untranslated: [],
+    translationsUsed: [],
   };
 }
 
@@ -812,7 +884,7 @@ function renderSection(ctx: PackageContext, shape: RoomShapeResult, hasBase: boo
   let angle = s.cameraAngle;
   if (angle === 'match-photo' && !hasBase) {
     angle = 'eye-level';
-    warnings.push({ level: 'info', message: '“Match the photo” needs a base photo; a standing eye-level view will be used instead.' });
+    warnings.push({ level: 'info', message: UI.studioWarn.matchPhoto });
   }
   const angleText =
     angle === 'match-photo' && iterating

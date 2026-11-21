@@ -58,8 +58,10 @@ describe('units', () => {
     expect(parseLength('620', 'cm')).toEqual({ ok: true, mm: 6200 });
     expect(parseLength('6200mm', 'm')).toEqual({ ok: true, mm: 6200 });
     expect(parseLength('4,8', 'm')).toEqual({ ok: true, mm: 4800 });
-    expect(parseLength('٤٫٥', 'm').ok).toBe(false); // Arabic decimal separator is not supported, reported as invalid
+    expect(parseLength('٤٫٥', 'm')).toEqual({ ok: true, mm: 4500 }); // Arabic-Indic digits and decimal separator
     expect(parseLength('٤', 'm')).toEqual({ ok: true, mm: 4000 });
+    expect(parseLength('٣٢٠ سم', 'm')).toEqual({ ok: true, mm: 3200 }); // Arabic unit names
+    expect(parseLength('2.5 م', 'cm')).toEqual({ ok: true, mm: 2500 });
   });
 
   it('treats empty input as unknown and rejects invalid values', () => {

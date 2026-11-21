@@ -1,7 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { nowIso } from '../ids';
-import { hasArabic, stableHash } from '../../i18n/arabic';
+import { englishFor, needsEnglish, normalizeSource, translationId } from './core';
+
+export { englishFor, needsEnglish, normalizeSource, translationId };
 import type { Translation } from '../types';
 
 /**
@@ -13,18 +15,8 @@ import type { Translation } from '../types';
  * Translations sync to the cloud like everything else.
  */
 
-export function normalizeSource(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
 
-export function translationId(text: string): string {
-  return `tr_${stableHash(normalizeSource(text))}`;
-}
 
-/** True when the text must be put into English before it can go into a prompt. */
-export function needsEnglish(text: string | null | undefined): boolean {
-  return !!text && hasArabic(text);
-}
 
 export async function setTranslation(source: string, en: string, method: Translation['method'] = 'manual'): Promise<void> {
   const clean = normalizeSource(source);
@@ -43,11 +35,6 @@ export async function getTranslations(): Promise<Map<string, Translation>> {
   return new Map(all.map((t) => [t.id, t]));
 }
 
-/** English for a text: the text itself if it has no Arabic, its saved translation, or null. */
-export function englishFor(text: string, memory: Map<string, Translation>): string | null {
-  if (!needsEnglish(text)) return text;
-  return memory.get(translationId(text))?.en ?? null;
-}
 
 export function useTranslationOf(text: string | null | undefined): Translation | null | undefined {
   return useLiveQuery(async () => (text && needsEnglish(text) ? ((await db.translations.get(translationId(text))) ?? null) : null), [text]);

@@ -213,3 +213,43 @@ describe('generation package — room independence and options', () => {
     expect(pkg.prompt).toBe('My own prompt');
   });
 });
+
+describe('generation package — English only', () => {
+  const arabicReq = () =>
+    createRequirementRecord('room', { title: 'جلسة أرضية منخفضة', description: 'مع وسائد بلون البيج', status: 'included', priority: 'must' });
+
+  it('never puts Arabic into the prompt and blocks until every Arabic text has English', () => {
+    const room = measuredRoom();
+    room.nameAr = 'المعيشة والطعام';
+    const req = { ...arabicReq(), roomId: room.id };
+    const pkg = buildGenerationPackage(ctx(room, { requirements: [req] }));
+    expect(pkg.untranslated.map((u) => u.source).sort()).toEqual(['جلسة أرضية منخفضة', 'مع وسائد بلون البيج'].sort());
+    expect(pkg.warnings[0].level).toBe('blocker');
+  });
+
+  it('uses the English from the translation memory and records what was used', async () => {
+    const { translationId } = await import('../translate/core');
+    const room = measuredRoom();
+    const req = { ...arabicReq(), roomId: room.id };
+    const t = (source: string, en: string) => [translationId(source), { id: translationId(source), source, en, method: 'manual' as const, updatedAt: '' }] as const;
+    const translations = new Map([t('جلسة أرضية منخفضة', 'Low floor seating'), t('مع وسائد بلون البيج', 'with beige cushions')]);
+    const pkg = buildGenerationPackage(ctx(room, { requirements: [req], translations }));
+    expect(pkg.untranslated).toEqual([]);
+    expect(pkg.prompt).toContain('Low floor seating');
+    expect(pkg.prompt).not.toMatch(/[؀-ۿ]/);
+    expect(pkg.translationsUsed).toHaveLength(2);
+  });
+
+  it('writes labels and measurements in English even when the interface is Arabic', async () => {
+    const { setPrefs } = await import('../../i18n/prefs');
+    setPrefs({ lang: 'ar', digits: 'arab' });
+    try {
+      const pkg = buildGenerationPackage(ctx(measuredRoom()));
+      expect(pkg.prompt).not.toMatch(/[؀-ۿ٠-٩]/);
+      expect(pkg.prompt).toContain('6.20 m');
+      expect(pkg.warnings.every((w) => /[؀-ۿ]/.test(w.message))).toBe(true);
+    } finally {
+      setPrefs({ lang: 'en', digits: 'latn' });
+    }
+  });
+});
