@@ -932,6 +932,26 @@ export const ar: Messages = {
     neverMoved: 'لا يُحرَّك الأثاث تلقائيًا أبدًا — أنت تقرر كيف تعالج كل تنبيه.',
   },
 
+  layoutCheck: {
+    bounds: (item: string) => `${item} يخرج عن حدود الغرفة.`,
+    overlap: (a: string, b: string) => `${a} يتداخل مع ${b}.`,
+    door: (item: string, door: string, swingIn: boolean) => `${item} يعيق ${door}${swingIn ? ' (مسار فتح الباب أو الوصول إليه)' : ' (الوصول إليه)'}.`,
+    windowAbove: (item: string, h: string, win: string, sill: string) => `${item} (بارتفاع ${h}) أمام ${win} ويرتفع فوق جلستها (${sill}).`,
+    windowUnknown: (item: string, win: string, itemHeightUnknown: boolean) =>
+      `${item} أمام ${win} مباشرة وقد يحجبها (${itemHeightUnknown ? 'ارتفاع القطعة' : 'ارتفاع الجلسة'} غير معروف).`,
+    acBlocks: (item: string, ac: string) => `${item} يحجب هواء ${ac}.`,
+    acReaches: (item: string, h: string, ac: string, at: string) => `${item} (بارتفاع ${h}) يصل إلى ${ac} المركّب على ${at} — قد يُحجب الهواء.`,
+    acUnknown: (item: string, ac: string, acHeightUnknown: boolean) =>
+      `${item} تحت ${ac}؛ تأكد أنه لا يحجب الهواء (${acHeightUnknown ? 'ارتفاع المكيف' : 'ارتفاع القطعة'} غير معروف).`,
+    architecture: (item: string, el: string) => `${item} يصطدم بـ ${el}.`,
+    clearance: (d: string, a: string, b: string, min: string) => `${d} فقط بين ${a} و${b} (الحد الأدنى لديك ${min}).`,
+    wallGap: (d: string, item: string, wall: string, min: string) => `فجوة ${d} بين ${item} و${wall} — أضيق من الحد الأدنى ${min}.`,
+    unplaced: (count: number, list: string) =>
+      `${count === 1 ? 'عنصر واحد موقعه أو عرضه غير معروف' : `${n(count)} عناصر مواقعها أو عروضها غير معروفة`} ولم يمكن فحصها: ${list}.`,
+    listSep: '، ',
+    needsOutline: 'فحوصات التوزيع تحتاج حدود الغرفة. أدخل أبعاد الغرفة لتفعيلها.',
+  },
+
   geo: {
     compass: {
       N: 'الشمالي',

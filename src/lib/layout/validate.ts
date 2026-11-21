@@ -14,6 +14,9 @@ import {
   type Point,
 } from '../geometry/polygon';
 import { formatLength } from '../units';
+import { tr } from '../../i18n/messages';
+import { elementTypeLabel, furnitureNameLabel } from '../labels';
+import { wallTitle } from '../geometry/names';
 
 export type WarningCode = 'overlap' | 'bounds' | 'door' | 'window' | 'ac' | 'clearance' | 'wall-gap' | 'architecture' | 'unchecked';
 
@@ -108,8 +111,13 @@ function cm(mm: number): string {
 }
 
 function label(el: ArchElement): string {
-  return el.label || el.subtype || el.type;
+  const english = elementTypeLabel(el.type, 'en');
+  if (!el.label || el.label === english) return elementTypeLabel(el.type);
+  const numbered = new RegExp(`^${english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (\\d+)$`).exec(el.label);
+  return numbered ? `${elementTypeLabel(el.type)} ${numbered[1]}` : el.label;
 }
+
+const nm = (it: Pick<FurnitureItem, 'name'>) => furnitureNameLabel(it.name);
 
 export interface ValidateInput {
   shape: RoomShapeResult;
@@ -119,6 +127,7 @@ export interface ValidateInput {
 }
 
 export function validateLayout({ shape, elements, items, layout }: ValidateInput): LayoutWarning[] {
+  const T = tr().layoutCheck;
   const out: LayoutWarning[] = [];
   const push = (w: Omit<LayoutWarning, 'id'>) => out.push({ ...w, id: `${w.code}:${[...w.itemIds, ...w.elementIds].join(',')}:${out.length}` });
 
@@ -126,7 +135,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
     push({
       level: 'info',
       code: 'unchecked',
-      message: 'Layout checks need the room outline. Enter the room dimensions to enable them.',
+      message: T.needsOutline,
       itemIds: [],
       elementIds: [],
     });
@@ -155,7 +164,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
         }
       }
       if (outside || crosses) {
-        push({ level: 'error', code: 'bounds', message: `${it.name} extends outside the room.`, itemIds: [it.id], elementIds: [] });
+        push({ level: 'error', code: 'bounds', message: T.bounds(nm(it)), itemIds: [it.id], elementIds: [] });
       }
     }
   }
@@ -170,7 +179,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
         const tuck = (a.category === 'chair' && TABLE_LIKE.includes(b.category)) || (b.category === 'chair' && TABLE_LIKE.includes(a.category));
         if (tuck) continue;
         if (convexOverlap(polys.get(a.id)!, polys.get(b.id)!, 1)) {
-          push({ level: 'error', code: 'overlap', message: `${a.name} overlaps ${b.name}.`, itemIds: [a.id, b.id], elementIds: [] });
+          push({ level: 'error', code: 'overlap', message: T.overlap(nm(a), nm(b)), itemIds: [a.id, b.id], elementIds: [] });
         }
       }
     }
@@ -192,7 +201,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
           push({
             level: 'error',
             code: 'door',
-            message: `${it.name} obstructs ${label(el)}${el.door?.swing === 'in' ? ' (door swing or approach)' : ' (approach)'}.`,
+            message: T.door(nm(it), label(el), el.door?.swing === 'in'),
             itemIds: [it.id],
             elementIds: [el.id],
           });
@@ -219,7 +228,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
             push({
               level: 'warning',
               code: 'window',
-              message: `${it.name} (${cm(it.height)} tall) stands in front of ${label(el)} and rises above its sill (${cm(el.elevation)}).`,
+              message: T.windowAbove(nm(it), cm(it.height), label(el), cm(el.elevation)),
               itemIds: [it.id],
               elementIds: [el.id],
             });
@@ -228,7 +237,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
           push({
             level: 'info',
             code: 'window',
-            message: `${it.name} is directly in front of ${label(el)} and may block it (${it.height === null ? 'item height' : 'sill height'} unknown).`,
+            message: T.windowUnknown(nm(it), label(el), it.height === null),
             itemIds: [it.id],
             elementIds: [el.id],
           });
@@ -252,13 +261,13 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
         if (it.layer === 'floor') continue;
         if (!convexOverlap(polys.get(it.id)!, zone, 1)) continue;
         if (floorStanding) {
-          push({ level: 'warning', code: 'ac', message: `${it.name} blocks the airflow of ${label(el)}.`, itemIds: [it.id], elementIds: [el.id] });
+          push({ level: 'warning', code: 'ac', message: T.acBlocks(nm(it), label(el)), itemIds: [it.id], elementIds: [el.id] });
         } else if (it.height !== null && el.elevation !== null) {
           if (it.height >= el.elevation - 200) {
             push({
               level: 'warning',
               code: 'ac',
-              message: `${it.name} (${cm(it.height)} tall) reaches the ${label(el)} mounted at ${cm(el.elevation)} — airflow may be blocked.`,
+              message: T.acReaches(nm(it), cm(it.height), label(el), cm(el.elevation)),
               itemIds: [it.id],
               elementIds: [el.id],
             });
@@ -267,7 +276,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
           push({
             level: 'info',
             code: 'ac',
-            message: `${it.name} is below ${label(el)}; check it doesn't block airflow (${el.elevation === null ? 'AC height' : 'item height'} unknown).`,
+            message: T.acUnknown(nm(it), label(el), el.elevation === null),
             itemIds: [it.id],
             elementIds: [el.id],
           });
@@ -284,7 +293,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
       for (const it of items) {
         if (it.layer === 'floor') continue;
         if (convexOverlap(polys.get(it.id)!, fp, 1)) {
-          push({ level: 'error', code: 'architecture', message: `${it.name} collides with ${label(el)}.`, itemIds: [it.id], elementIds: [el.id] });
+          push({ level: 'error', code: 'architecture', message: T.architecture(nm(it), label(el)), itemIds: [it.id], elementIds: [el.id] });
         }
       }
     }
@@ -302,7 +311,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
           push({
             level: 'warning',
             code: 'clearance',
-            message: `Only ${cm(d)} between ${a.name} and ${b.name} (your minimum is ${cm(clearance)}).`,
+            message: T.clearance(cm(d), nm(a), nm(b), cm(clearance)),
             itemIds: [a.id, b.id],
             elementIds: [],
           });
@@ -319,7 +328,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
           push({
             level: 'info',
             code: 'wall-gap',
-            message: `${cm(d)} gap between ${it.name} and the ${seg.name} wall — narrower than your ${cm(clearance)} minimum.`,
+            message: T.wallGap(cm(d), nm(it), wallTitle(seg), cm(clearance)),
             itemIds: [it.id],
             elementIds: [],
           });
@@ -332,7 +341,7 @@ export function validateLayout({ shape, elements, items, layout }: ValidateInput
     push({
       level: 'info',
       code: 'unchecked',
-      message: `${unplaced.length === 1 ? '1 element has' : `${unplaced.length} elements have`} an unknown position or width and could not be checked: ${unplaced.map(label).join(', ')}.`,
+      message: T.unplaced(unplaced.length, unplaced.map(label).join(T.listSep)),
       itemIds: [],
       elementIds: unplaced.map((e) => e.id),
     });

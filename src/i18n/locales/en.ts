@@ -880,6 +880,26 @@ export const en = {
     neverMoved: 'Furniture is never moved automatically — you decide how to resolve each warning.',
   },
 
+  layoutCheck: {
+    bounds: (item: string) => `${item} extends outside the room.`,
+    overlap: (a: string, b: string) => `${a} overlaps ${b}.`,
+    door: (item: string, door: string, swingIn: boolean) => `${item} obstructs ${door}${swingIn ? ' (door swing or approach)' : ' (approach)'}.`,
+    windowAbove: (item: string, h: string, win: string, sill: string) => `${item} (${h} tall) stands in front of ${win} and rises above its sill (${sill}).`,
+    windowUnknown: (item: string, win: string, itemHeightUnknown: boolean) =>
+      `${item} is directly in front of ${win} and may block it (${itemHeightUnknown ? 'item height' : 'sill height'} unknown).`,
+    acBlocks: (item: string, ac: string) => `${item} blocks the airflow of ${ac}.`,
+    acReaches: (item: string, h: string, ac: string, at: string) => `${item} (${h} tall) reaches the ${ac} mounted at ${at} — airflow may be blocked.`,
+    acUnknown: (item: string, ac: string, acHeightUnknown: boolean) =>
+      `${item} is below ${ac}; check it doesn't block airflow (${acHeightUnknown ? 'AC height' : 'item height'} unknown).`,
+    architecture: (item: string, el: string) => `${item} collides with ${el}.`,
+    clearance: (d: string, a: string, b: string, min: string) => `Only ${d} between ${a} and ${b} (your minimum is ${min}).`,
+    wallGap: (d: string, item: string, wall: string, min: string) => `${d} gap between ${item} and the ${wall} — narrower than your ${min} minimum.`,
+    unplaced: (count: number, list: string) =>
+      `${count === 1 ? '1 element has' : `${n(count)} elements have`} an unknown position or width and could not be checked: ${list}.`,
+    listSep: ', ',
+    needsOutline: 'Layout checks need the room outline. Enter the room dimensions to enable them.',
+  },
+
   geo: {
     compass: {
       N: 'North',
