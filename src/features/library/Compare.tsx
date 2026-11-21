@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router';
 import { ArrowLeftRight, Columns2, Expand, Maximize2, Minus, Plus, Save, SplitSquareHorizontal, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CompareItemRef, Comparison, ID, Reference } from '@/lib/types';
-import { useReferences, useRooms, useVersions } from '@/lib/hooks/data';
+import { useFilesMap, useReferences, useRooms, useVersions } from '@/lib/hooks/data';
+import { roomDisplayName } from '@/lib/names';
+import { useT } from '@/i18n';
+import { num } from '@/i18n/format';
 import { useImageUrl } from '@/lib/hooks/useImageUrl';
 import { saveComparison, deleteComparison } from '@/lib/db/misc';
 import { referenceKindLabel, versionStatusMeta } from '@/lib/labels';
@@ -38,6 +41,8 @@ function useResolved(items: CompareItemRef[]): Resolved[] {
   const versions = useVersions() ?? [];
   const refs = useReferences() ?? [];
   const rooms = useRooms() ?? [];
+  const t = useT();
+  const C = t.compare;
   return items.map((it) => {
     if (it.type === 'version') {
       const v = versions.find((x) => x.id === it.id);
@@ -45,7 +50,7 @@ function useResolved(items: CompareItemRef[]): Resolved[] {
       return {
         ref: it,
         imageId: v?.imageId ?? null,
-        label: v ? `${room?.name ?? 'Room'} · v${v.number}` : 'Missing version',
+        label: v ? `${roomDisplayName(room) || t.common.room} · v${num(v.number)}` : C.missingVersion,
         sublabel: v ? versionStatusMeta(v.status).label : '',
       };
     }
@@ -53,26 +58,28 @@ function useResolved(items: CompareItemRef[]): Resolved[] {
     return {
       ref: it,
       imageId: r?.imageId ?? null,
-      label: r ? r.title || referenceKindLabel(r.kind) : 'Missing image',
+      label: r ? r.title || referenceKindLabel(r.kind) : C.missingImage,
       sublabel: r ? referenceKindLabel(r.kind) : '',
     };
   });
 }
 
 function PaneImage({ imageId, label }: { imageId: string | null; label: string }) {
+  const t = useT();
   const { url } = useImageUrl(imageId, 'full');
   return (
     <div className="flex h-full w-full items-center justify-center">
       {url ? (
         <img src={url} alt={label} draggable={false} className="max-h-full max-w-full object-contain" />
       ) : (
-        <span className="text-[12px] text-white/50">No image</span>
+        <span className="text-[12px] text-white/50">{t.compare.noImage}</span>
       )}
     </div>
   );
 }
 
 function SliderView({ a, b, view, onView }: { a: Resolved; b: Resolved; view: View; onView: (v: View) => void }) {
+  const t = useT();
   const [pos, setPos] = useState(50);
   const wrap = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -82,7 +89,7 @@ function SliderView({ a, b, view, onView }: { a: Resolved; b: Resolved; view: Vi
     setPos(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
   };
   return (
-    <div ref={wrap} className="relative h-full w-full">
+    <div ref={wrap} className="relative h-full w-full" dir="ltr">
       <ZoomPan view={view} onChange={onView}>
         <div className="relative h-full w-full">
           <div className="absolute inset-0 p-2">
@@ -96,7 +103,7 @@ function SliderView({ a, b, view, onView }: { a: Resolved; b: Resolved; view: Vi
       <div
         role="slider"
         tabIndex={0}
-        aria-label="Comparison divider"
+        aria-label={t.compare.divider}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(pos)}
@@ -119,8 +126,8 @@ function SliderView({ a, b, view, onView }: { a: Resolved; b: Resolved; view: Vi
           <ArrowLeftRight size={15} />
         </div>
       </div>
-      <span className="pointer-events-none absolute left-3 top-3 rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">{a.label}</span>
-      <span className="pointer-events-none absolute right-3 top-3 rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">{b.label}</span>
+      <span dir="auto" className="pointer-events-none absolute left-3 top-3 max-w-[45%] truncate rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">{a.label}</span>
+      <span dir="auto" className="pointer-events-none absolute right-3 top-3 max-w-[45%] truncate rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">{b.label}</span>
     </div>
   );
 }
@@ -140,6 +147,9 @@ function ComparePicker({
   const versions = useVersions() ?? [];
   const refs = useReferences() ?? [];
   const rooms = useRooms() ?? [];
+  const files = useFilesMap();
+  const t = useT();
+  const C = t.compare;
   const [tab, setTab] = useState<'concepts' | 'site' | 'refs' | 'approved'>('concepts');
   const [room, setRoom] = useState<string>(roomId ?? 'all');
   useEffect(() => {
@@ -154,13 +164,14 @@ function ComparePicker({
           .map((v) => ({
             key: v.id,
             imageId: v.imageId,
-            title: `${rooms.find((r) => r.id === v.roomId)?.name ?? 'Room'} · v${v.number}`,
+            title: `${roomDisplayName(rooms.find((r) => r.id === v.roomId)) || t.common.room} · v${num(v.number)}`,
             sub: versionStatusMeta(v.status).label,
             ref: { type: 'version', id: v.id },
           }))
       : refs
           .filter(
             (r: Reference) =>
+              (files?.get(r.imageId)?.kind ?? 'image') === 'image' &&
               (tab === 'site' ? r.kind === 'site-photo' : r.kind !== 'site-photo' && r.kind !== 'generated') && inRoom([...r.roomIds, ...r.directionRoomIds]),
           )
           .map((r) => ({
@@ -171,30 +182,30 @@ function ComparePicker({
             ref: { type: 'reference', id: r.id },
           }));
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} size="xl" title="Add an image to compare">
+    <Dialog open={open} onOpenChange={onOpenChange} size="xl" title={C.pickTitle}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs
           value={tab}
           onChange={setTab}
           tabs={[
-            { id: 'concepts', label: 'Generated concepts' },
-            { id: 'approved', label: 'Approved designs' },
-            { id: 'site', label: 'Original photos' },
-            { id: 'refs', label: 'Inspiration & references' },
+            { id: 'concepts', label: C.tabConcepts },
+            { id: 'approved', label: C.tabApproved },
+            { id: 'site', label: C.tabSite },
+            { id: 'refs', label: C.tabRefs },
           ]}
           className="!border-b-0"
         />
-        <Select value={room} onChange={(e) => setRoom(e.target.value)} className="w-[200px]">
-          <option value="all">All rooms</option>
+        <Select value={room} onChange={(e) => setRoom(e.target.value)} className="w-full sm:w-[200px]" aria-label={t.common.room}>
+          <option value="all">{t.common.allRooms}</option>
           {rooms.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.name}
+              {roomDisplayName(r)}
             </option>
           ))}
         </Select>
       </div>
       {list.length === 0 ? (
-        <EmptyState compact title="Nothing here yet" />
+        <EmptyState compact title={C.nothingYet} />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {list.map((it) => (
@@ -205,11 +216,13 @@ function ComparePicker({
                 onPick(it.ref);
                 onOpenChange(false);
               }}
-              className="overflow-hidden rounded-md border border-line text-left hover:shadow-soft"
+              className="overflow-hidden rounded-md border border-line text-start hover:shadow-soft"
             >
               <ImageThumb imageId={it.imageId} className="aspect-[4/3] w-full" />
               <div className="px-2 py-1.5">
-                <div className="truncate text-[12.5px]">{it.title}</div>
+                <div className="truncate text-[12.5px]" dir="auto">
+                  {it.title}
+                </div>
                 <div className="text-[11px] text-ink-3">{it.sub}</div>
               </div>
             </button>
@@ -223,6 +236,8 @@ function ComparePicker({
 export function CompareWorkspace({ comparison, initialItems }: { comparison: Comparison | null; initialItems: CompareItemRef[] }) {
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const t = useT();
+  const C = t.compare;
   const versions = useVersions() ?? [];
   const [items, setItems] = useState<CompareItemRef[]>(comparison?.items ?? initialItems);
   const [mode, setMode] = useState<'side' | 'slider'>(comparison?.mode ?? 'side');
@@ -246,8 +261,8 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
   }, [comparison?.id]);
 
   const save = async () => {
-    const saved = await saveComparison({ id: comparison?.id, title: title.trim() || 'Comparison', roomId, items, mode, notes });
-    toast.success('Comparison saved');
+    const saved = await saveComparison({ id: comparison?.id, title: title.trim() || C.defaultTitle, roomId, items, mode, notes });
+    toast.success(C.saved);
     if (!comparison) navigate(`/library/compare/${saved.id}`, { replace: true });
   };
 
@@ -262,7 +277,7 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
     const el = stage.current;
     if (!el) return;
     if (document.fullscreenElement) document.exitFullscreen();
-    else el.requestFullscreen?.().catch(() => toast.error('Full screen is not available'));
+    else el.requestFullscreen?.().catch(() => toast.error(C.noFullscreen));
   };
 
   return (
@@ -271,9 +286,10 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Comparison title"
-          className="max-w-[280px]"
-          aria-label="Comparison title"
+          placeholder={C.titlePlaceholder}
+          className="w-full sm:max-w-[280px]"
+          aria-label={C.titlePlaceholder}
+          dir="auto"
         />
         <Segmented
           value={mode}
@@ -283,7 +299,7 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
               value: 'side',
               label: (
                 <span className="inline-flex items-center gap-1.5">
-                  <Columns2 size={13} /> Side by side
+                  <Columns2 size={13} /> {C.side}
                 </span>
               ),
             },
@@ -291,24 +307,24 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
               value: 'slider',
               label: (
                 <span className="inline-flex items-center gap-1.5">
-                  <SplitSquareHorizontal size={13} /> Slider
+                  <SplitSquareHorizontal size={13} /> {C.slider}
                 </span>
               ),
             },
           ]}
         />
         <Button size="sm" icon={Plus} onClick={() => setPicker(true)} disabled={items.length >= 4}>
-          Add image
+          {C.addImage}
         </Button>
-        <span className="mx-1 h-5 w-px bg-line" />
-        <IconButton icon={Minus} label="Zoom out" onClick={() => zoom(1 / 1.4)} />
-        <IconButton icon={Plus} label="Zoom in" onClick={() => zoom(1.4)} />
-        <IconButton icon={Maximize2} label="Reset zoom" onClick={() => setView(IDENTITY)} />
-        <IconButton icon={Expand} label="Full screen" onClick={fullscreen} />
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+        <IconButton icon={Minus} label={t.common.zoomOut} onClick={() => zoom(1 / 1.4)} />
+        <IconButton icon={Plus} label={t.common.zoomIn} onClick={() => zoom(1.4)} />
+        <IconButton icon={Maximize2} label={C.resetZoom} onClick={() => setView(IDENTITY)} />
+        <IconButton icon={Expand} label={t.common.fullscreen} onClick={fullscreen} />
         {mode === 'slider' && items.length >= 2 && (
-          <IconButton icon={ArrowLeftRight} label="Swap sides" onClick={() => setItems(([a, b, ...rest]) => [b, a, ...rest])} />
+          <IconButton icon={ArrowLeftRight} label={C.swap} onClick={() => setItems(([a, b, ...rest]) => [b, a, ...rest])} />
         )}
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           {comparison && (
             <Button
               size="sm"
@@ -316,10 +332,10 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
               icon={Trash2}
               onClick={async () => {
                 const r = await confirm({
-                  title: 'Delete this comparison?',
+                  title: C.deleteTitle,
                   tone: 'danger',
-                  confirmLabel: 'Delete',
-                  description: 'The images themselves are not affected.',
+                  confirmLabel: t.refs.deleteConfirm,
+                  description: C.deleteBody,
                 });
                 if (r.confirmed) {
                   await deleteComparison(comparison.id);
@@ -327,21 +343,21 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
                 }
               }}
             >
-              Delete
+              {t.common.delete}
             </Button>
           )}
           <Button size="sm" variant="primary" icon={Save} onClick={save} disabled={!items.length}>
-            Save
+            {t.common.save}
           </Button>
         </div>
       </div>
 
-      <div ref={stage} className="relative h-[clamp(380px,calc(100dvh-330px),820px)] overflow-hidden rounded-md bg-[#1b1915]">
+      <div ref={stage} className="relative h-[clamp(320px,calc(100dvh-330px),820px)] overflow-hidden rounded-md bg-[#1b1915]">
         {items.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-[13px] text-white/60">
-            Pick original photos, inspiration, concepts or the approved design to compare.
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[13px] text-white/60">
+            {C.emptyStage}
             <Button size="sm" icon={Plus} onClick={() => setPicker(true)}>
-              Add image
+              {C.addImage}
             </Button>
           </div>
         ) : mode === 'slider' && resolved.length >= 2 ? (
@@ -360,15 +376,15 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
                     <PaneImage imageId={r.imageId} label={r.label} />
                   </div>
                 </ZoomPan>
-                <div className="pointer-events-none absolute left-3 top-3 rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">
-                  {r.label}
-                  {r.sublabel && <span className="ml-1.5 text-white/60">{r.sublabel}</span>}
+                <div className="pointer-events-none absolute start-3 top-3 max-w-[70%] truncate rounded-sm bg-black/55 px-2 py-1 text-[11.5px] text-white">
+                  <bdi>{r.label}</bdi>
+                  {r.sublabel && <span className="ms-1.5 text-white/60">{r.sublabel}</span>}
                 </div>
                 <button
                   type="button"
-                  aria-label="Remove from comparison"
+                  aria-label={C.remove}
                   onClick={() => setItems((its) => its.filter((_, j) => j !== i))}
-                  className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-sm bg-black/55 text-white hover:bg-black/75"
+                  className="absolute end-2 top-2 flex h-10 w-10 items-center justify-center rounded-sm bg-black/55 text-white hover:bg-black/75"
                 >
                   <X size={14} />
                 </button>
@@ -377,26 +393,26 @@ export function CompareWorkspace({ comparison, initialItems }: { comparison: Com
           </div>
         )}
         {mode === 'slider' && resolved.length === 1 && (
-          <div className="absolute inset-x-0 bottom-4 text-center text-[12px] text-white/70">Add a second image to use the slider.</div>
+          <div className="absolute inset-x-0 bottom-4 text-center text-[12px] text-white/70">{C.needSecond}</div>
         )}
       </div>
-      <p className="text-[11.5px] text-ink-3">Scroll or pinch to zoom, drag to pan, double-click to toggle zoom. All panes stay in sync.</p>
+      <p className="text-[11.5px] text-ink-3">{C.gestures}</p>
       <div>
-        <div className="eyebrow mb-2">Notes</div>
+        <div className="eyebrow mb-2">{t.common.notes}</div>
         {comparison ? (
           <CommitInput
             multiline
             minRows={3}
             value={comparison.notes}
             onCommit={(v) => saveComparison({ ...comparison, notes: v })}
-            placeholder="Observations, decisions, what to change…"
+            placeholder={C.notesPlaceholder}
           />
         ) : (
           <textarea
             dir="auto"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Observations, decisions, what to change… (saved with the comparison)"
+            placeholder={C.notesPlaceholderNew}
             className="min-h-[90px] w-full rounded-sm border border-line bg-raised px-3 py-2 text-[13.5px] outline-none focus:border-ink-3"
           />
         )}
