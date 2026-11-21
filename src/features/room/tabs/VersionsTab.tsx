@@ -12,8 +12,12 @@ import { Dialog } from '@/components/ui/Overlay';
 import { EmptyState } from '@/components/ui/Display';
 import { Dropzone } from '@/components/images/Dropzone';
 import { VersionCard, VersionDetail } from '../../versions/VersionDetail';
+import { useT } from '@/i18n';
+import { num } from '@/i18n/format';
 
 function ImportDialog({ room, open, onOpenChange }: { room: Room; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT();
+  const V = t.versionsTab;
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -23,7 +27,7 @@ function ImportDialog({ room, open, onOpenChange }: { room: Room; open: boolean;
     setBusy(true);
     try {
       const v = await importDesignImage(room.id, file, title.trim(), notes.trim());
-      toast.success(`Imported as v${v.number}`);
+      toast.success(V.imported(t.versions.short(v.number)));
       onOpenChange(false);
       setFile(null);
       setTitle('');
@@ -38,15 +42,15 @@ function ImportDialog({ room, open, onOpenChange }: { room: Room; open: boolean;
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Import a design"
-      description="Add a design created elsewhere (for example by a designer) as a version of this room. It is labelled “Imported”, not “Generated”."
+      title={V.importTitle}
+      description={V.importLead}
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="primary" disabled={!file} loading={busy} onClick={save}>
-            Import
+            {V.import}
           </Button>
         </>
       }
@@ -54,13 +58,14 @@ function ImportDialog({ room, open, onOpenChange }: { room: Room; open: boolean;
       <div className="flex flex-col gap-4">
         <Dropzone
           multiple={false}
-          onFiles={(f) => (isAcceptedImage(f[0]) ? setFile(f[0]) : toast.error('Unsupported file'))}
-          label={file ? `Selected: ${file.name}` : 'Drop the design image here, or click to browse'}
+          imagesOnly
+          onFiles={(f) => (isAcceptedImage(f[0]) ? setFile(f[0]) : toast.error(V.unsupported))}
+          label={file ? V.selected(file.name) : V.drop}
         />
-        <Field label="Title">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Designer option B" />
+        <Field label={t.common.title}>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={V.titlePlaceholder} />
         </Field>
-        <Field label="Notes">
+        <Field label={t.common.notes}>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} minRows={2} />
         </Field>
       </div>
@@ -69,6 +74,8 @@ function ImportDialog({ room, open, onOpenChange }: { room: Room; open: boolean;
 }
 
 export function VersionsTab({ room, versions }: { room: Room; versions: DesignVersion[] }) {
+  const t = useT();
+  const V = t.versionsTab;
   const navigate = useNavigate();
   const [filter, setFilter] = useState<VersionStatus | 'all'>('all');
   const [selected, setSelected] = useState<string[]>([]);
@@ -83,22 +90,20 @@ export function VersionsTab({ room, versions }: { room: Room; versions: DesignVe
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="display text-[28px]">Design versions</h2>
-          <p className="mt-1 max-w-[640px] text-[12.5px] leading-relaxed text-ink-3">
-            Every generation is saved as its own version with the prompt, settings, images and snapshots used. Approving a version never changes earlier ones.
-          </p>
+          <h2 className="display text-[28px]">{V.title}</h2>
+          <p className="mt-1 max-w-[640px] text-[12.5px] leading-relaxed text-ink-3">{V.lead}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {selected.length >= 1 && (
             <Button variant="primary" icon={Columns2} onClick={() => navigate(`/library/compare?items=${selected.map((id) => `ver:${id}`).join(',')}`)}>
-              Compare {selected.length}
+              {V.compare(selected.length)}
             </Button>
           )}
           <Button icon={Upload} onClick={() => setImporting(true)}>
-            Import design
+            {V.importDesign}
           </Button>
           <ButtonLink to={`/studio/${room.id}`} icon={Sparkles}>
-            New version
+            {V.newVersion}
           </ButtonLink>
         </div>
       </div>
@@ -106,14 +111,14 @@ export function VersionsTab({ room, versions }: { room: Room; versions: DesignVe
       {versions.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
-            All <span className="opacity-60">{versions.length}</span>
+            {V.all} <span className="opacity-60">{num(versions.length)}</span>
           </Chip>
           {VERSION_STATUSES.map((s) => {
-            const n = versions.filter((v) => v.status === s.value).length;
-            if (!n) return null;
+            const count = versions.filter((v) => v.status === s.value).length;
+            if (!count) return null;
             return (
               <Chip key={s.value} active={filter === s.value} onClick={() => setFilter(s.value)}>
-                {s.label} <span className="opacity-60">{n}</span>
+                {s.label} <span className="opacity-60">{num(count)}</span>
               </Chip>
             );
           })}
@@ -123,19 +128,19 @@ export function VersionsTab({ room, versions }: { room: Room; versions: DesignVe
       {versions.length === 0 ? (
         <EmptyState
           icon={History}
-          title="No versions yet"
+          title={V.emptyTitle}
           action={
             <>
               <ButtonLink to={`/studio/${room.id}`} variant="primary" icon={Sparkles}>
-                Redesign this room
+                {V.redesign}
               </ButtonLink>
               <Button icon={Upload} onClick={() => setImporting(true)}>
-                Import a design
+                {V.importADesign}
               </Button>
             </>
           }
         >
-          Generate a concept in the Design Studio, or import a design you already have.
+          {V.emptyBody}
         </EmptyState>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -145,7 +150,7 @@ export function VersionsTab({ room, versions }: { room: Room; versions: DesignVe
         </div>
       )}
       {selected.length > 0 && (
-        <p className="text-[12px] text-ink-3">{selected.length} selected for comparison (up to 4). Add site photos or references on the comparison screen.</p>
+        <p className="text-[12px] text-ink-3">{V.selectedHint(selected.length)}</p>
       )}
       <VersionDetail version={open} room={room} onClose={() => setOpenId(null)} />
       <ImportDialog room={room} open={importing} onOpenChange={setImporting} />

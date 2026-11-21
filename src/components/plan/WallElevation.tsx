@@ -1,3 +1,6 @@
+import { useI18n } from '@/i18n';
+import { furnitureNameLabel } from '@/lib/labels';
+import { elementDisplayLabel } from '@/components/images/references';
 import { useMemo } from 'react';
 import type { Room } from '@/lib/types';
 import { effectiveWallHeight, type WallSegment } from '@/lib/geometry/room';
@@ -23,6 +26,7 @@ export function WallElevation({
   selectedElementId?: string | null;
   onElementClick?: (id: string) => void;
 }) {
+  const { t, lang } = useI18n();
   const [ref, size] = useElementSize<HTMLDivElement>();
   const wallH = effectiveWallHeight(seg.wall, room.ceilingHeight);
   const L = seg.length.mm;
@@ -47,7 +51,7 @@ export function WallElevation({
   if (L === null) {
     return (
       <div className="flex h-[200px] items-center justify-center rounded-md border border-line bg-surface text-[12.5px] text-ink-3">
-        Wall length unknown — enter dimensions to see the elevation.
+        {t.elevation.lengthUnknown}
       </div>
     );
   }
@@ -66,7 +70,7 @@ export function WallElevation({
   return (
     <div ref={ref} className="w-full overflow-hidden rounded-md border border-line bg-surface" style={{ height }}>
       {size.width > 0 && (
-        <svg width={w} height={height} style={{ display: 'block', fontFamily: 'Inter Variable, Inter, system-ui, sans-serif' }}>
+        <svg width={w} height={height} direction="ltr" style={{ display: 'block', direction: 'ltr', fontFamily: 'var(--font-sans)' }}>
           <rect
             x={X(0)}
             y={Y(H)}
@@ -96,8 +100,8 @@ export function WallElevation({
                 />
                 {(x1 - x0) * scale > 50 && (
                   <text x={X((x0 + x1) / 2)} y={Y(h) + 13} textAnchor="middle" fontSize={10} fill={C.furnitureText}>
-                    {it.name}
-                    {it.height === null ? ' (height ?)' : ''}
+                    {furnitureNameLabel(it.name)}
+                    {it.height === null ? t.elevation.heightUnknownItem : ''}
                   </text>
                 )}
               </g>
@@ -154,7 +158,7 @@ export function WallElevation({
                 {el.type === 'window' && <line x1={X(x + ew / 2)} y1={Y(elev + eh)} x2={X(x + ew / 2)} y2={Y(elev)} stroke={C.window} strokeWidth={0.8} />}
                 {ew * scale > 30 && (
                   <text x={X(x + ew / 2)} y={Y(elev + eh / 2)} textAnchor="middle" dominantBaseline="central" fontSize={10} fill={stroke}>
-                    {el.type === 'ac' ? 'AC' : el.label}
+                    {el.type === 'ac' ? t.elevation.ac : elementDisplayLabel(el, lang)}
                   </text>
                 )}
               </g>
@@ -163,17 +167,17 @@ export function WallElevation({
 
           <text x={X(L / 2)} y={height - 14} textAnchor="middle" fontSize={11} fill={C.dimText}>
             {formatLength(L, unit)}
-            {seg.length.certainty === 'estimated' ? ' (estimated)' : ''}
+            {seg.length.certainty === 'estimated' ? t.elevation.estimated : ''}
           </text>
           <text x={X(0)} y={height - 30} textAnchor="start" fontSize={9.5} fill={C.label}>
-            ← start
+            {t.elevation.start}
           </text>
           <text x={X(L)} y={height - 30} textAnchor="end" fontSize={9.5} fill={C.label}>
-            end →
+            {t.elevation.end}
           </text>
           <g transform={`translate(${X(0) - 16} ${Y(H / 2)}) rotate(-90)`}>
             <text textAnchor="middle" fontSize={10.5} fill={wallH.mm === null ? C.warn : C.dimText}>
-              {wallH.mm === null ? 'height unknown' : formatLength(wallH.mm, unit)}
+              {wallH.mm === null ? t.elevation.heightUnknown : formatLength(wallH.mm, unit)}
             </text>
           </g>
         </svg>

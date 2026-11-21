@@ -7,7 +7,10 @@ import { updateRoom } from '@/lib/db/rooms';
 import { directionIsEmpty, emptyDirection } from '@/lib/db/factories';
 import { linkReferences, unlinkReferences } from '@/lib/db/references';
 import { nowIso } from '@/lib/ids';
-import { formatDateTime } from '@/lib/format';
+import { fmtDateTime } from '@/i18n/format';
+import { useI18n } from '@/i18n';
+import { presetDisplayName, presetSummary, roomDisplayName } from '@/lib/names';
+import { PickerButtons } from '@/components/images/Dropzone';
 import { ImageThumb } from '@/components/images/ImageThumb';
 import { useLightbox } from '@/components/images/Lightbox';
 import { IntentMark, ReferencePicker } from '@/components/images/references';
@@ -53,6 +56,9 @@ function mergeEmpty(current: DesignDirectionFields, incoming: DesignDirectionFie
 }
 
 export function DirectionTab({ room, references }: { room: Room; references: Reference[] }) {
+  const { t, lang } = useI18n();
+  const D = t.direction;
+  const roomName = roomDisplayName(room, lang);
   const presets = usePresets() ?? [];
   const rooms = useRooms() ?? [];
   const settings = useSettings();
@@ -75,11 +81,10 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
     let mode: 'replace' | 'fill' = 'replace';
     if (!empty) {
       const r = await confirm({
-        title: `Apply “${source.presetName}” to ${room.name}?`,
-        description:
-          'This room already has a direction. Untick the box to replace every field; leave it ticked to fill only the empty ones. Other rooms are not affected.',
-        confirmLabel: 'Apply',
-        checkbox: { label: 'Only fill empty fields (keep what I wrote)', defaultChecked: true },
+        title: D.applyTitle(source.presetName, roomName),
+        description: D.applyBody,
+        confirmLabel: D.apply,
+        checkbox: { label: D.onlyFillEmpty, defaultChecked: true },
       });
       if (!r.confirmed) return;
       mode = r.checked ? 'fill' : 'replace';
@@ -88,36 +93,31 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
       const next = mode === 'fill' ? mergeEmpty(pickFields(draft.direction), fields) : pickFields(fields);
       draft.direction = { ...draft.direction, ...next, presetId: source.presetId ?? null, presetName: source.presetName, updatedAt: nowIso() };
     });
-    toast.success(`Applied ${source.presetName}`, { description: 'Edit any field — the preset itself is unchanged.' });
+    toast.success(D.applied(source.presetName), { description: D.appliedHint });
   };
 
   const adoptConcept = async () => {
     await updateRoom(room.id, (draft) => {
-      const text = draft.preliminaryConcept.trim();
+      const text = (lang === 'ar' && draft.preliminaryConceptAr ? draft.preliminaryConceptAr : draft.preliminaryConcept).trim();
       draft.direction.description = draft.direction.description.trim() ? `${draft.direction.description.trim()}\n\n${text}` : text;
       draft.direction.updatedAt = nowIso();
       draft.preliminaryConcept = '';
+      draft.preliminaryConceptAr = '';
     });
-    toast.success('Earlier idea added to the description', { description: 'Refine it in the fields below.' });
+    toast.success(D.ideaAdded, { description: D.ideaAddedHint });
   };
 
   const dismissConcept = async () => {
-    const r = await confirm({
-      title: 'Remove the earlier idea?',
-      description: 'The note will be deleted from this room. It has never been used in designs.',
-      confirmLabel: 'Remove note',
-      tone: 'danger',
-    });
-    if (r.confirmed) await updateRoom(room.id, (draft) => void (draft.preliminaryConcept = ''));
+    const r = await confirm({ title: D.removeIdeaTitle, description: D.removeIdeaBody, confirmLabel: D.removeNote, tone: 'danger' });
+    if (r.confirmed)
+      await updateRoom(room.id, (draft) => {
+        draft.preliminaryConcept = '';
+        draft.preliminaryConceptAr = '';
+      });
   };
 
   const clearAll = async () => {
-    const r = await confirm({
-      title: 'Clear this room’s direction?',
-      tone: 'danger',
-      confirmLabel: 'Clear',
-      description: 'All direction fields for this room are emptied. Reference images stay in the library.',
-    });
+    const r = await confirm({ title: D.clearTitle, tone: 'danger', confirmLabel: D.clear, description: D.clearBody });
     if (r.confirmed) await updateRoom(room.id, (draft) => void (draft.direction = emptyDirection()));
   };
 
@@ -127,35 +127,35 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
     <div className="flex flex-col gap-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="display text-[28px]">Design direction</h2>
+          <h2 className="display text-[28px]">{D.title}</h2>
           <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-ink-3">
-            The style for <strong className="text-ink-2">this room only</strong>. Every field is optional — use a preset as a starting point, write your own, or
-            rely on images.
-            {d.updatedAt && <> Last changed {formatDateTime(d.updatedAt)}.</>}
-            {d.presetName && <> Started from “{d.presetName}”.</>}
+            {D.leadPrefix}
+            {d.updatedAt && D.lastChanged(fmtDateTime(d.updatedAt))}
+            {d.presetName && D.startedFrom(d.presetName)}
           </p>
+          <p className="mt-1 max-w-[680px] text-[11.5px] leading-relaxed text-ink-4">{D.englishNote}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {otherRooms.length > 0 && (
             <Menu
               trigger={
                 <Button size="sm" icon={Copy}>
-                  Copy from another room
+                  {D.copyFrom}
                 </Button>
               }
               items={otherRooms.map((r) => ({
-                label: r.name,
+                label: roomDisplayName(r, lang),
                 hint: r.direction.style,
-                onSelect: () => applyFields(r.direction, { presetName: `${r.name}'s direction` }),
+                onSelect: () => applyFields(r.direction, { presetName: D.roomsDirection(roomDisplayName(r, lang)) }),
               }))}
             />
           )}
           <Button size="sm" icon={Settings2} onClick={() => setManager(true)}>
-            Manage presets
+            {D.managePresets}
           </Button>
           {!empty && (
             <Button size="sm" variant="ghost" icon={Eraser} onClick={clearAll}>
-              Clear
+              {D.clear}
             </Button>
           )}
         </div>
@@ -165,37 +165,43 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
         <Callout
           tone="neutral"
           icon={Lightbulb}
-          title="Earlier conceptual idea — not applied"
+          title={D.ideaTitle}
           action={
             <>
               <Button size="sm" onClick={adoptConcept}>
-                Use as starting point
+                {D.useAsStart}
               </Button>
               <Button size="sm" variant="ghost" onClick={dismissConcept}>
-                Remove note
+                {D.removeNote}
               </Button>
             </>
           }
         >
-          <p className="text-[13px] text-ink">“{room.preliminaryConcept}”</p>
-          <p className="mt-1">From earlier discussions in the project brief. It is not a confirmed decision and is not sent to the AI unless you adopt it.</p>
+          <p className="text-[13px] text-ink" dir="auto">
+            {t.common.quoted(lang === 'ar' && room.preliminaryConceptAr ? room.preliminaryConceptAr : room.preliminaryConcept)}
+          </p>
+          <p className="mt-1">{D.ideaBody}</p>
         </Callout>
       )}
 
       <section>
-        <GroupLabel>Start from a preset</GroupLabel>
+        <GroupLabel>{D.startFromPreset}</GroupLabel>
         <div className="scroll-thin -mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
           {presets.map((p: DirectionPreset) => (
             <button
               key={p.id}
               type="button"
-              onClick={() => applyFields(p.fields, { presetId: p.id, presetName: p.name })}
-              className="flex w-[200px] shrink-0 flex-col gap-2.5 rounded-md border border-line bg-surface p-3 text-left transition-shadow hover:border-line-strong hover:shadow-soft"
+              onClick={() => applyFields(p.fields, { presetId: p.id, presetName: presetDisplayName(p, lang) })}
+              className="flex w-[180px] shrink-0 flex-col gap-2.5 rounded-md border border-line bg-surface p-3 text-start transition-shadow hover:border-line-strong hover:shadow-soft sm:w-[200px]"
             >
               <PaletteStrip fields={p.fields} className="h-10 !rounded-sm" />
               <div>
-                <div className="text-[13.5px] text-ink">{p.name}</div>
-                <div className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-ink-3">{p.summary}</div>
+                <div className="text-[13.5px] text-ink" dir="auto">
+                  {presetDisplayName(p, lang)}
+                </div>
+                <div className="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-ink-3" dir="auto">
+                  {presetSummary(p, lang)}
+                </div>
               </div>
             </button>
           ))}
@@ -203,7 +209,7 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
       </section>
 
       <section>
-        <GroupLabel>Direction for {room.name}</GroupLabel>
+        <GroupLabel>{D.directionFor(roomName)}</GroupLabel>
         <DirectionFieldsEditor value={d} onChange={patch} />
       </section>
 
@@ -211,25 +217,32 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
         <GroupLabel
           actions={
             <div className="flex gap-1.5">
-              <UploadButton
-                size="xs"
-                loading={busy}
-                onFiles={(files) => upload(files, { kind: 'inspiration', roomIds: [room.id], directionRoomIds: [room.id], intent: 'want' })}
-              >
-                Upload
-              </UploadButton>
+              <span className="hidden sm:inline-flex">
+                <UploadButton
+                  size="xs"
+                  imagesOnly
+                  loading={busy}
+                  onFiles={(files) => upload(files, { kind: 'inspiration', roomIds: [room.id], directionRoomIds: [room.id], intent: 'want' })}
+                >
+                  {D.upload}
+                </UploadButton>
+              </span>
               <Button size="xs" variant="ghost" icon={Library} onClick={() => setPicker(true)}>
-                From library
+                {D.fromLibrary}
               </Button>
             </div>
           }
         >
-          Direction reference images
+          {D.refImages}
         </GroupLabel>
+        <PickerButtons
+          imagesOnly
+          className="mb-3 sm:hidden"
+          disabled={busy}
+          onFiles={(files) => void upload(files, { kind: 'inspiration', roomIds: [room.id], directionRoomIds: [room.id], intent: 'want' })}
+        />
         {directionRefs.length === 0 ? (
-          <p className="rounded-md border border-dashed border-line-strong/70 px-4 py-6 text-center text-[12.5px] text-ink-3">
-            Mood images for this room’s style. Mark an image “Avoid” to show a look you don’t want.
-          </p>
+          <p className="rounded-md border border-dashed border-line-strong/70 px-4 py-6 text-center text-[12.5px] text-ink-3">{D.refEmpty}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {directionRefs.map((r) => (
@@ -244,17 +257,21 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
                     )
                   }
                 >
-                  <IntentMark intent={r.intent} className="absolute left-2 top-2" />
+                  <IntentMark intent={r.intent} className="absolute start-2 top-2" />
                 </ImageThumb>
                 <IconButton
                   icon={Link2Off}
-                  label="Remove from direction"
+                  label={D.removeFromDirection}
                   size="xs"
                   variant="overlay"
-                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  className="absolute end-2 top-2 opacity-100 group-hover:opacity-100 focus:opacity-100 sm:opacity-0"
                   onClick={() => unlinkReferences([r.id], 'directionRoomIds', room.id)}
                 />
-                {r.title && <div className="mt-1.5 truncate text-[12px] text-ink-2">{r.title}</div>}
+                {r.title && (
+                  <div className="mt-1.5 truncate text-[12px] text-ink-2" dir="auto">
+                    {r.title}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -265,16 +282,16 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
         <Toggle
           checked={room.useHouseGuidelines}
           onChange={(v) => updateRoom(room.id, (draft) => void (draft.useHouseGuidelines = v))}
-          label="Also apply the house-wide guidelines to this room"
+          label={D.houseToggle}
           description={
             settings?.houseGuidelines.trim()
-              ? `Off by default. When on, these guidelines are added to this room's prompts: “${settings.houseGuidelines.trim().slice(0, 140)}${settings.houseGuidelines.trim().length > 140 ? '…' : ''}”`
-              : 'Off by default. No house-wide guidelines are written yet — add them in Settings if you ever want shared rules.'
+              ? D.houseOn(`${settings.houseGuidelines.trim().slice(0, 140)}${settings.houseGuidelines.trim().length > 140 ? '…' : ''}`)
+              : D.houseNone
           }
         />
         {!settings?.houseGuidelines.trim() && (
           <ButtonLink to="/settings" size="xs" variant="ghost" className="mt-2">
-            Open Settings
+            {D.openSettings}
           </ButtonLink>
         )}
       </section>
@@ -283,7 +300,8 @@ export function DirectionTab({ room, references }: { room: Room; references: Ref
       <ReferencePicker
         open={picker}
         onOpenChange={setPicker}
-        title="Direction reference images"
+        title={D.refImages}
+        imagesOnly
         preferRoomId={room.id}
         excludeIds={directionRefs.map((r) => r.id)}
         uploadDefaults={{ kind: 'inspiration', roomIds: [room.id], directionRoomIds: [room.id], intent: 'want' }}

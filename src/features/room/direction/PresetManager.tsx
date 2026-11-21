@@ -10,11 +10,13 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { useConfirm } from '@/components/ui/Confirm';
 import { DirectionFieldsEditor } from './DirectionFields';
+import { useI18n } from '@/i18n';
+import { presetDisplayName, presetSummary } from '@/lib/names';
 
 export function PaletteStrip({ fields, className = 'h-2' }: { fields: DesignDirectionFields; className?: string }) {
   if (!fields.palette.length) return <div className={`${className} rounded-full bg-mist`} />;
   return (
-    <div className={`flex overflow-hidden rounded-full ${className}`}>
+    <div className={`flex overflow-hidden rounded-full ${className}`} dir="ltr">
       {fields.palette.map((c) => (
         <div key={c.id} className="flex-1" style={{ background: c.hex }} />
       ))}
@@ -24,6 +26,8 @@ export function PaletteStrip({ fields, className = 'h-2' }: { fields: DesignDire
 
 /** View, edit, reset and create design presets. Presets are starting points only. */
 export function PresetManager({ open, onOpenChange, seed }: { open: boolean; onOpenChange: (o: boolean) => void; seed?: DesignDirectionFields | null }) {
+  const { t, lang } = useI18n();
+  const T = t.presets;
   const presets = usePresets() ?? [];
   const confirm = useConfirm();
   const [editing, setEditing] = useState<{ id?: string; name: string; summary: string; fields: DesignDirectionFields } | null>(null);
@@ -36,17 +40,17 @@ export function PresetManager({ open, onOpenChange, seed }: { open: boolean; onO
         open={open && !editing}
         onOpenChange={onOpenChange}
         size="lg"
-        title="Design presets"
-        description="Presets are editable starting points. Applying one copies its values into a single room — rooms never share or inherit a preset automatically."
+        title={T.title}
+        description={T.lead}
         footer={
           <>
             {seed && (
-              <Button onClick={() => startNew(seed)} className="mr-auto">
-                Save this room’s direction as a preset
+              <Button onClick={() => startNew(seed)} className="me-auto">
+                {T.saveRoom}
               </Button>
             )}
             <Button variant="primary" icon={Plus} onClick={() => startNew()}>
-              New preset
+              {T.new}
             </Button>
           </>
         }
@@ -58,39 +62,34 @@ export function PresetManager({ open, onOpenChange, seed }: { open: boolean; onO
                 <PaletteStrip fields={p.fields} className="h-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[13.5px]">{p.name}</div>
-                <div className="truncate text-[12px] text-ink-3">{p.summary}</div>
+                <div className="text-[13.5px]" dir="auto">
+                  {presetDisplayName(p, lang)}
+                </div>
+                <div className="truncate text-[12px] text-ink-3" dir="auto">
+                  {presetSummary(p, lang)}
+                </div>
               </div>
               <IconButton
                 icon={Pencil}
-                label="Edit preset"
+                label={T.edit}
                 onClick={() => setEditing({ id: p.id, name: p.name, summary: p.summary, fields: structuredClone(p.fields) })}
               />
               {p.builtIn && (
                 <IconButton
                   icon={RotateCcw}
-                  label="Reset to original"
+                  label={T.reset}
                   onClick={async () => {
-                    const r = await confirm({
-                      title: `Reset “${p.name}”?`,
-                      description: 'Your edits to this preset will be replaced by the original values. Rooms are not affected.',
-                      confirmLabel: 'Reset',
-                    });
-                    if (r.confirmed && (await resetPreset(p.id))) toast.success('Preset reset');
+                    const r = await confirm({ title: T.resetTitle(presetDisplayName(p, lang)), description: T.resetBody, confirmLabel: t.common.reset });
+                    if (r.confirmed && (await resetPreset(p.id))) toast.success(T.resetDone);
                   }}
                 />
               )}
               <IconButton
                 icon={Trash2}
-                label="Delete preset"
+                label={T.delete}
                 variant="danger"
                 onClick={async () => {
-                  const r = await confirm({
-                    title: `Delete “${p.name}”?`,
-                    tone: 'danger',
-                    confirmLabel: 'Delete',
-                    description: 'Rooms that used it keep their own copy of the values.',
-                  });
+                  const r = await confirm({ title: T.deleteTitle(presetDisplayName(p, lang)), tone: 'danger', confirmLabel: t.common.delete, description: T.deleteBody });
                   if (r.confirmed) await deletePreset(p.id);
                 }}
               />
@@ -102,25 +101,25 @@ export function PresetManager({ open, onOpenChange, seed }: { open: boolean; onO
         open={!!editing}
         onOpenChange={(o) => !o && setEditing(null)}
         size="lg"
-        title={editing?.id ? 'Edit preset' : 'New preset'}
+        title={editing?.id ? T.edit : T.new}
         footer={
           <>
             <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button
               variant="primary"
               onClick={async () => {
                 if (!editing?.name.trim()) {
-                  toast.error('Give the preset a name');
+                  toast.error(T.nameRequired);
                   return;
                 }
                 await savePreset({ ...editing, name: editing.name.trim() });
-                toast.success('Preset saved');
+                toast.success(T.saved);
                 setEditing(null);
               }}
             >
-              Save preset
+              {T.save}
             </Button>
           </>
         }
@@ -128,10 +127,10 @@ export function PresetManager({ open, onOpenChange, seed }: { open: boolean; onO
         {editing && (
           <div className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name">
+              <Field label={T.name}>
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </Field>
-              <Field label="Summary">
+              <Field label={T.summary}>
                 <Input value={editing.summary} onChange={(e) => setEditing({ ...editing, summary: e.target.value })} />
               </Field>
             </div>
