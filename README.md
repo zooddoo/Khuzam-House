@@ -135,6 +135,7 @@ npm run fake-supabase &       # http://localhost:54321
 VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_test \
   npx vite build && npx vite preview --port 5173 &
 npm run test:e2e
+node e2e/import-merge.cjs    # Import & Merge on a fresh account
 ```
 
 They cover: owner sign-up, requirement with a photo and a PDF, delete → restore,
