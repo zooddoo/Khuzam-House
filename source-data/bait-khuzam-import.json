@@ -1,0 +1,2976 @@
+{
+  "format": "bait-khuzam-import",
+  "version": 1,
+  "title": "Bait Khuzam — verified house data",
+  "sources": [
+    "kitchen.md",
+    "living-room.md",
+    "house-layout.md"
+  ],
+  "project": {
+    "name": "Bait Khuzam",
+    "nameAr": "بيت خزام",
+    "location": "Riyadh, Saudi Arabia",
+    "locationAr": "الرياض",
+    "description": "Duplex villa — model نموذج عبية 2A–2B (Abiya 2A–2B). Total built-up area 430 m². 3 floors (ground, first, second). Street/front façade faces West. All Confirmed (plan / your messages)."
+  },
+  "floors": [
+    {
+      "key": "ground",
+      "name": "Ground floor",
+      "nameAr": "الدور الأرضي"
+    },
+    {
+      "key": "first",
+      "name": "First floor",
+      "nameAr": "الدور الأول"
+    },
+    {
+      "key": "second",
+      "name": "Second floor",
+      "nameAr": "الدور الثاني"
+    }
+  ],
+  "house": {
+    "decisions": [
+      "House reference name: بيت خزام.",
+      "Reference plan: نموذج عبية 2A–2B.",
+      "West-facing street façade.",
+      "Majlis is on the west side of the living room.",
+      "Kitchen and backyard are on the east side of the living room.",
+      "Side corridor runs north, from the entrance toward the backyard.",
+      "Stairs and bathroom are south of the living room.",
+      "Kitchen expansion approved: 5.4 × 4.3 m.",
+      "Master bedroom dimensions revised to 9.4 × 4 m.",
+      "Backyard revised to 7 × 5.4 m.",
+      "Garage and entrance area: 11.6 × 5.9 m.",
+      "North side corridor: 1.9 × 23 m.",
+      "Exact plot compass/site orientation beyond these relationships: Unknown.",
+      "Main entrance at the garage/entry area on the west/front side — exact door position Unknown.",
+      "Majlis/guest entrance: Unknown. Service entrance: Unknown."
+    ],
+    "removed": [
+      "Fry Kitchen — مطبخ القلي: removed by your decision; its area was merged into the Main Kitchen.",
+      "Balcony — الشرفة: removed from the revised layout.",
+      "Front Roof/Terrace — السطح الأمامي: not included in the revised layout table."
+    ],
+    "missing": [
+      "Street boundary: boundary wall dimensions, gates, exact entry geometry",
+      "Structural system: column coordinates/sizes, beams, load-bearing walls, slab details",
+      "Ceiling heights: all floor-specific clear heights",
+      "Levels: floor-to-floor heights, step levels, thresholds, courtyard/yard levels",
+      "Doors throughout house: width, height, swing/sliding configuration, exact position measured from corners",
+      "Windows throughout house: width, height, sill height, exact position and opening type",
+      "AC throughout house: type, location, capacity, indoor/outdoor unit positions",
+      "Services: plumbing, electrical, drainage, ventilation, and equipment locations"
+    ]
+  },
+  "conflicts": [
+    {
+      "id": 1,
+      "room": "living-dining",
+      "title": "Living & Dining size: Confirmed or Estimated?",
+      "detail": "house-layout.md lists 8.2 × 6.5 m as plan dimensions (Confirmed); living-room.md says Estimated (~53.3 m², not re-verified from plan). Imported as 8.2 × 6.5 m, marked Estimated until you confirm."
+    },
+    {
+      "id": 2,
+      "room": "kitchen",
+      "title": "Backyard position relative to the kitchen",
+      "detail": "house-layout.md: kitchen and backyard are on the east side of the living room. kitchen.md: the backyard door and window are on the kitchen's NORTH wall and the east wall is solid. Imported per kitchen.md (authoritative for the kitchen); not resolved."
+    },
+    {
+      "id": 3,
+      "room": "living-dining",
+      "title": "Living palette",
+      "detail": "house-layout.md: warm walnut wood, off-white, beige, natural fabric tones. living-room.md: warm beige, stone grey, natural wood + dusty pink, sage green, burgundy (with HEX codes). Imported the living-room.md palette; not resolved."
+    },
+    {
+      "id": 4,
+      "room": "living-dining",
+      "title": "Living-room windows: east only, or north too?",
+      "detail": "house-layout.md: long vertical windows face the backyard (east). living-room.md also has two vertical glass panes on the NORTH wall beside the corridor door. Both imported; not resolved."
+    },
+    {
+      "id": 5,
+      "room": "living-dining",
+      "title": "Dining table for 8 people",
+      "detail": "Only in house-layout.md. Added to Living & Dining as a Pending requirement."
+    }
+  ],
+  "rooms": [
+    {
+      "key": "garage",
+      "name": "Garage & Entrance",
+      "nameAr": "الكراج والمدخل",
+      "type": "garage",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Garage + entrance (Confirmed). Shape: rectangular (Estimated from plan). Entrance connects into the house — Confirmed in layout; exact walls Unknown. Main entrance at the garage/entry area on the west/front side — exact door position Unknown. Status: layout confirmed; detailed design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 11.6,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 5.9,
+          "certainty": "confirmed"
+        },
+        "source": "11.6 × 5.9 m — dimensions confirmed by user's revision. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Exact garage width/depth split",
+        "door location and dimensions",
+        "AC",
+        "columns",
+        "structural beams"
+      ],
+      "photos": []
+    },
+    {
+      "key": "majlis",
+      "name": "Majlis",
+      "nameAr": "المجلس",
+      "type": "majlis",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Guest reception (Confirmed). Shape: rectangular (Estimated). Living room to the east — Confirmed; other shared walls Unknown. Guest entrance details Unknown; dedicated Majlis entrance not confirmed. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 4,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 9.4,
+          "certainty": "confirmed"
+        },
+        "source": "4 × 9.4 m — dimensions from plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Entrance location and dimensions",
+        "windows",
+        "AC",
+        "exact adjacent wall configuration",
+        "structural columns"
+      ],
+      "photos": []
+    },
+    {
+      "key": "majlis-bath",
+      "name": "Majlis Bathroom",
+      "nameAr": "حمام المجلس",
+      "type": "bathroom",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Guest bathroom (Confirmed). Shape: rectangular (Estimated). Majlis vicinity — Confirmed by plan; exact wall relationships Unknown. Plumbing fixture layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.8,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "source": "1.8 × 2.6 m — plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door position/dimensions",
+        "window",
+        "plumbing layout",
+        "ventilation",
+        "AC"
+      ],
+      "photos": []
+    },
+    {
+      "key": "living-dining",
+      "name": "Living & Dining Room",
+      "nameAr": "الصالة / غرفة المعيشة والطعام",
+      "type": "living-dining",
+      "floor": "ground",
+      "status": "requirements-added",
+      "description": "Open-plan living & dining (Confirmed). Space 3 in the house (Confirmed). Orientation: north is connected to the house entrance / side corridor, west is the Majlis side (Confirmed). Adjacent: West — Majlis; East — kitchen and backyard direction; North — side corridor and living-room entrance; South — stairs and bathroom (house-layout.md). Shape: approximately rectangular with a stepped ceiling and opening zones (Estimated).",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 8.2,
+          "certainty": "estimated"
+        },
+        "width": {
+          "m": 6.5,
+          "certainty": "estimated"
+        },
+        "source": "8.2 × 6.5 m (~53.3 m²) — Estimated (living-room.md); house-layout.md lists it as plan dimensions. CONFLICT 1: marked Estimated until you confirm. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length: Unknown. Height: Unknown. AC units: locations, sizes and heights Unknown. Fixed: the TV wall after the corridor entrance zone (Confirmed). No wall dividers between the glass pieces — must preserve.",
+          "design": {
+            "cladding": "Full-wall shiplap / شيبورد cladding (Confirmed)",
+            "tv": "Wall-mounted TV with a floating console under it; console limited to the TV area and must not extend under the AC units (Confirmed)",
+            "lighting": "No decorative lighting, no LED strips or backlighting (Rejected)",
+            "other": "No shelves. No decorative divisions interrupting the wall treatment."
+          }
+        },
+        "S": {
+          "notes": "Length, height, doors, windows, AC and fixed elements: Unknown.",
+          "design": {
+            "furniture": "Seating area and furniture must not block circulation (general furniture layout Confirmed; wall details Unknown)."
+          }
+        },
+        "E": {
+          "notes": "Length: Unknown. Height: Unknown. AC: Unknown. Solid wall section between the backyard glass group and the kitchen door (Confirmed). Backyard door and its two glass panes are visually connected with no wall dividers between the glass — must preserve.",
+          "design": {
+            "other": "Keep the openings as they are; kitchen door is a sliding door on the same plane as the glass group; no dividers between the glass."
+          }
+        },
+        "W": {
+          "notes": "Length: Unknown. Height: Unknown. Windows: Unknown. AC: Unknown. Dining-area side (Confirmed). Connection toward the Majlis (Confirmed); exact opening details Unknown.",
+          "design": {
+            "furniture": "Dining table zone. Keep easy movement from the Majlis toward the stairs, bathroom and kitchen."
+          }
+        }
+      },
+      "elements": [
+        {
+          "type": "door",
+          "subtype": "Single door",
+          "label": "Side corridor entrance (glass door) — باب الممر الجانبي",
+          "wall": "N",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Glass door from the north side corridor. Visually connected to the two north glass panes. Width, height and position from corner Unknown."
+        },
+        {
+          "type": "window",
+          "subtype": "Fixed glazing",
+          "label": "North vertical glass pane 1",
+          "wall": "N",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "One of two vertical glass panes beside the corridor door; no wall dividers between the glass pieces. Size and position Unknown. CONFLICT 4: house-layout.md only mentions the east (backyard) windows."
+        },
+        {
+          "type": "window",
+          "subtype": "Fixed glazing",
+          "label": "North vertical glass pane 2",
+          "wall": "N",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Second vertical glass pane beside the corridor door. Size and position Unknown. CONFLICT 4."
+        },
+        {
+          "type": "door",
+          "subtype": "Single door",
+          "label": "Backyard entrance (glass door) — مدخل الفناء الخلفي",
+          "wall": "E",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Glass door to the backyard. Width, height and position from corner Unknown."
+        },
+        {
+          "type": "window",
+          "subtype": "Fixed glazing",
+          "label": "East vertical glass pane 1 (beside backyard door)",
+          "wall": "E",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "One of two vertical glass panes next to the backyard entrance, visually continuous with it, no wall dividers. Size and sill Unknown. house-layout.md: long vertical windows facing the backyard; operable section exists, configuration Unknown."
+        },
+        {
+          "type": "window",
+          "subtype": "Fixed glazing",
+          "label": "East vertical glass pane 2 (beside backyard door)",
+          "wall": "E",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Second vertical glass pane next to the backyard entrance. Size and sill Unknown."
+        },
+        {
+          "type": "door",
+          "subtype": "Sliding door",
+          "label": "Kitchen sliding door — باب المطبخ",
+          "wall": "E",
+          "status": "confirmed",
+          "preserve": true,
+          "swing": "sliding",
+          "notes": "Sliding door to the kitchen, on the same level/plane as the glass group, with a solid wall section between it and the backyard glazing. Width and height Unknown."
+        },
+        {
+          "type": "door",
+          "subtype": "Opening (no door)",
+          "label": "Connection toward the Majlis",
+          "wall": "W",
+          "status": "confirmed",
+          "preserve": true,
+          "swing": "opening",
+          "notes": "Connection toward the Majlis is Confirmed; exact opening type, size and position Unknown."
+        }
+      ],
+      "layout": [],
+      "requirements": [
+        {
+          "title": "Preserve existing room structure",
+          "description": "Do not change the room's original structure and proportions",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Preserve glass openings",
+          "description": "Keep all existing glass doors and windows in their original positions",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "North glazing",
+          "description": "Two vertical glass panes plus side corridor glass door",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "No glazing dividers",
+          "description": "No added wall dividers between connected glass panels/doors",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Backyard glazing",
+          "description": "Backyard entrance with two adjacent vertical glass panes",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Kitchen sliding door",
+          "description": "Sliding kitchen door on east wall",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Wall section beside kitchen",
+          "description": "Preserve wall space between backyard glass group and kitchen sliding door",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Clear circulation",
+          "description": "Clear path from majlis to stairs, guest bathroom, and kitchen",
+          "category": "functional",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Functional",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Dining in West",
+          "description": "Place dining table on western side",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Long sofa facing North",
+          "description": "Main long sofa faces north toward TV",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Classic Persian/Turkish rugs",
+          "description": "Rugs with classical Persian or Turkish pattern",
+          "category": "style",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Style",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Warm minimalist style",
+          "description": "Contemporary warm minimalist",
+          "category": "style",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Style",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Secondary colors",
+          "description": "Dusty pink, sage green, burgundy",
+          "category": "colors",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Colors",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Warm neutral base",
+          "description": "Beige and stone-grey neutral foundation",
+          "category": "colors",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Colors",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Natural wood",
+          "description": "Warm natural wood elements",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Materials",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Parquet flooring",
+          "description": "Wooden parquet floor",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Materials",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Lower dining ceiling",
+          "description": "Dining ceiling lower than living area ceiling",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Preserve ceiling levels",
+          "description": "Retain original ceiling transitions and heights",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "TV wall shiplap",
+          "description": "Full TV wall shiplap treatment",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Materials",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Wall-mounted TV",
+          "description": "Mount TV on wall",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Furniture",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Floating console",
+          "description": "Floating TV console",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Furniture",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Console limited to TV area",
+          "description": "Do not extend console below AC units",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Furniture",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "No TV wall shelves",
+          "description": "TV wall without shelves",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Storage",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "No TV wall decorative lights",
+          "description": "No decorative lights on TV wall",
+          "category": "lighting",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Lighting",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "No LED/backlighting",
+          "description": "No LED strip or backlighting on TV wall",
+          "category": "lighting",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Lighting",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Keep doors accessible",
+          "description": "Furniture must not obstruct door operation or access",
+          "category": "functional",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Functional",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Keep windows accessible",
+          "description": "Furniture must not block glass or light",
+          "category": "functional",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Functional",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Plants",
+          "description": "Use plants as selected decorative elements",
+          "category": "other",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Other",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Soft textiles",
+          "description": "Layer textiles to create warmth",
+          "category": "style",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Style",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Warm lighting",
+          "description": "Warm lighting ambience",
+          "category": "lighting",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Lighting",
+          "source": "living-room.md — Requirements"
+        },
+        {
+          "title": "Dining table for 8 people",
+          "description": "Dining table planned for 8 people in the living/dining space.",
+          "category": "furniture",
+          "priority": "preferred",
+          "status": "pending",
+          "kind": "want",
+          "group": "",
+          "notes": "CONFLICT 5: only stated in house-layout.md; living-room.md lists dining chair count as Unknown. Pending until you confirm.",
+          "source": "house-layout.md — Approved living room design constraints"
+        },
+        {
+          "title": "Adding wall dividers between glass panels",
+          "description": "The existing glass should appear continuous with no added wall separation",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Treating the north/east glazing as one uninterrupted glass façade",
+          "description": "The actual room has distinct door/window arrangements across two walls",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Inventing a large continuous rear glass wall",
+          "description": "Does not match the actual architecture",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Shelves on the TV wall",
+          "description": "Explicitly rejected",
+          "category": "storage",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "LED strips on the TV wall",
+          "description": "Explicitly rejected",
+          "category": "lighting",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Backlighting behind TV wall finishes",
+          "description": "Explicitly rejected",
+          "category": "lighting",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Decorative TV-wall lighting",
+          "description": "Explicitly rejected",
+          "category": "lighting",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Floating console extending below AC units",
+          "description": "Explicitly prohibited",
+          "category": "furniture",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Console extending beyond TV area",
+          "description": "Explicitly prohibited",
+          "category": "furniture",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Blocking the side passage, backyard entrance or kitchen access with furniture",
+          "description": "Conflicts with circulation requirements",
+          "category": "functional",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        },
+        {
+          "title": "Moving doors, windows or AC units to fit the design",
+          "description": "Explicitly prohibited",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "living-room.md — Rejected ideas"
+        }
+      ],
+      "constraints": [
+        "Existing room geometry and proportions.",
+        "Existing doors and openings.",
+        "Existing windows and glass panels.",
+        "Existing AC locations.",
+        "Original glass arrangement and connections.",
+        "The north wall's glazing and side corridor entrance arrangement.",
+        "The east wall's backyard entrance, glazing, wall section and kitchen door arrangement.",
+        "The kitchen door being a sliding door.",
+        "The parquet flooring.",
+        "The different ceiling levels; dining ceiling is lower.",
+        "The north TV wall location.",
+        "The long sofa facing north.",
+        "Dining zone on the west side.",
+        "Clear circulation from majlis to stairs, guest bathroom, and kitchen.",
+        "No obstruction of circulation.",
+        "No added dividers between connected glazing."
+      ],
+      "direction": {
+        "style": "Contemporary Warm Minimalist with subtle classic Turkish / Persian influence",
+        "atmosphere": "Natural, calm, warm, elegant, timeless, not overly decorated",
+        "palette": [
+          {
+            "hex": "#D9C9B8",
+            "name": "Warm Beige / بيج دافئ",
+            "role": "Main color for upholstery and interior (Confirmed)"
+          },
+          {
+            "hex": "#A7A39A",
+            "name": "Stone Grey / رمادي حجري",
+            "role": "Secondary neutral (Confirmed)"
+          },
+          {
+            "hex": "#8B6F56",
+            "name": "Natural Wood / خشب طبيعي",
+            "role": "TV wall, furniture and tables (Confirmed)"
+          },
+          {
+            "hex": "#B98F8F",
+            "name": "Dusty Pink / وردي غباري",
+            "role": "Accent textiles and chairs (Confirmed)"
+          },
+          {
+            "hex": "#7A826B",
+            "name": "Sage Green / أخضر مريمي",
+            "role": "Cushions, accessories, plants (Confirmed)"
+          },
+          {
+            "hex": "#5B2C2C",
+            "name": "Burgundy / عنابي",
+            "role": "Selective accents (Confirmed)"
+          }
+        ],
+        "paletteNotes": "HEX values used in the approved design boards — Confirmed as design palette values, not necessarily final paint/material product codes. CONFLICT 3: house-layout.md gives a different general palette (warm walnut wood, off-white, beige, natural fabric tones) — not resolved.",
+        "materials": "Contemporary clean architecture combined with traditional patterns in rugs and textile accents. Rugs: classic Turkish or Persian-style patterns (Confirmed).",
+        "woodType": "Natural and warm, medium tone (Confirmed as design direction; exact species/finish Unknown)",
+        "flooring": "Wooden parquet (باركيه خشبي) — Confirmed",
+        "wallFinishes": "Warm neutral matte finish (Confirmed as design direction). TV wall: full-wall shiplap / شيبورد cladding (Confirmed).",
+        "furnitureStyle": "Long main sofa facing north / TV wall; accent chairs; coffee table; dining table on the west side. Floating TV console limited to the TV area.",
+        "lighting": "Warm lighting atmosphere (Confirmed). General ceiling lighting (Planned). Specification, color temperature, fixture types, quantity and locations Unknown.",
+        "curtains": "Soft, light curtains shown in design direction; exact fabric, color and specification Unknown.",
+        "description": "Existing ceiling shape must be preserved (Confirmed). Dining ceiling is lower than the living/lounge ceiling (Confirmed). Approved renderings are aesthetic direction only, not measurement sources.",
+        "avoid": "Shelves, decorative lighting, LED strips or backlighting on the TV wall; decorative divisions interrupting the TV wall treatment; dividers between connected glazing."
+      },
+      "library": [
+        {
+          "name": "Long main sofa",
+          "category": "sofa",
+          "notes": "Position: Living zone; faces North / TV wall. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Additional sofa / sectional components",
+          "category": "sofa",
+          "notes": "Position: Living zone. Status: Estimated based on approved render. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Accent chairs",
+          "category": "armchair",
+          "notes": "Position: Around living seating zone. Status: Confirmed concept. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Coffee table",
+          "category": "table",
+          "notes": "Position: Center of seating. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Side tables",
+          "category": "table",
+          "notes": "Position: Beside seating. Status: Preferred. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Living rug",
+          "category": "rug",
+          "notes": "Position: Under main seating. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Persian/Turkish-style rug",
+          "category": "rug",
+          "notes": "Position: Living zone. Status: Must Have. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Dining table",
+          "category": "dining-table",
+          "notes": "Position: Western side of room. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Dining chairs",
+          "category": "chair",
+          "notes": "Position: Around dining table. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Dining rug",
+          "category": "rug",
+          "notes": "Position: Western dining zone. Status: Included in approved concept. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "Plants",
+          "category": "plant",
+          "notes": "Position: Select corners/areas, not blocking movement. Status: Preferred. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "TV console",
+          "category": "tv-unit",
+          "notes": "Position: North TV wall. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        },
+        {
+          "name": "TV",
+          "category": "tv-unit",
+          "notes": "Position: North TV wall. Status: Confirmed. Dimensions Unknown. (living-room.md)"
+        }
+      ],
+      "missing": [
+        "Room geometry: Exact north wall length",
+        "Room geometry: Exact south wall length",
+        "Room geometry: Exact east wall length",
+        "Room geometry: Exact west wall length",
+        "Room geometry: Exact overall room dimensions verified against original plan",
+        "Room geometry: Exact room shape, including offsets/returns",
+        "Room geometry: Exact ceiling height in living area",
+        "Room geometry: Exact ceiling height in dining area",
+        "Room geometry: Exact height difference between ceiling levels",
+        "Room geometry: Exact ceiling offset / transition dimensions",
+        "Room geometry: Exact area in square meters verified from architectural plan",
+        "Doors and glazing: Width and height of every north glass panel",
+        "Doors and glazing: Width and height of side passage glass door",
+        "Doors and glazing: Exact positioning of north glass elements measured from corner",
+        "Doors and glazing: Width and height of backyard glass door",
+        "Doors and glazing: Width and height of the two east glass panels",
+        "Doors and glazing: Exact positioning of east glazing from corner",
+        "Doors and glazing: Kitchen sliding door width and height",
+        "Doors and glazing: Wall section width between backyard glazing and kitchen door",
+        "Doors and glazing: Door sill elevation and frame dimensions",
+        "Doors and glazing: Opening direction/operating details for all doors",
+        "AC units: Number of AC units in the living room",
+        "AC units: Exact wall for each unit",
+        "AC units: Position along wall (distance from corner)",
+        "AC units: Width and height of each unit",
+        "AC units: Elevation from floor",
+        "AC units: Required clearance below/around each AC",
+        "AC units: Verified console termination points relative to the AC units",
+        "TV wall: Exact TV wall width and height",
+        "TV wall: TV size in inches",
+        "TV wall: TV center height",
+        "TV wall: Exact shiplap width/profile/material",
+        "TV wall: Console width, depth, height and mounting elevation",
+        "TV wall: Exact console location relative to AC units",
+        "TV wall: Wood species and stain/finish",
+        "TV wall: Confirmed power/data outlet positions",
+        "Furniture: Main sofa dimensions",
+        "Furniture: Additional sofa dimensions, if any",
+        "Furniture: Accent chair dimensions",
+        "Furniture: Number of accent chairs",
+        "Furniture: Coffee table dimensions",
+        "Furniture: Side table dimensions",
+        "Furniture: Dining table dimensions",
+        "Furniture: Dining chair dimensions",
+        "Furniture: Dining chair count",
+        "Furniture: Living rug dimensions",
+        "Furniture: Dining rug dimensions",
+        "Furniture: Plant sizes and exact locations",
+        "Finish specifications: Exact parquet product and color",
+        "Finish specifications: Exact wood species and finish",
+        "Finish specifications: Wall paint codes and brands",
+        "Finish specifications: Curtain fabric and color",
+        "Finish specifications: Curtain dimensions and track placement",
+        "Finish specifications: Rug colors/pattern specifications",
+        "Finish specifications: Lighting fixtures and quantities",
+        "Finish specifications: Lighting color temperature",
+        "Finish specifications: Lighting circuit/scene plan",
+        "Finish specifications: Final accessories/decor selections"
+      ],
+      "photos": [
+        {
+          "file": "غرفة المعيشة - المدخل من الممر الجانبي.jpg",
+          "wall": "N",
+          "note": "View from the side corridor entrance into the living room."
+        },
+        {
+          "file": "غرفة المعيشة - جدار التلفاز ما بين نوافذ الفناء الخلفي والمدخل.jpg",
+          "wall": "N",
+          "note": "TV wall and its relationship to the backyard windows and entrance."
+        },
+        {
+          "file": "غرفة المعيشة - المدخل والنوافذ على الفناء الخلفي.jpg",
+          "wall": "E",
+          "note": "Backyard entrance and glazing."
+        }
+      ]
+    },
+    {
+      "key": "living-bath",
+      "name": "Living Room Bathroom",
+      "nameAr": "حمام الصالة",
+      "type": "bathroom",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Bathroom (Confirmed). Shape: rectangular (Estimated). South side service area near the stairs — Confirmed generally; exact shared walls Unknown. Bathroom door referenced in video 3; wall, position and size Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.85,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "source": "1.85 × 2.6 m — plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Exact door position/dimensions",
+        "window",
+        "ventilation",
+        "fixtures layout"
+      ],
+      "photos": []
+    },
+    {
+      "key": "kitchen",
+      "name": "Main Kitchen",
+      "nameAr": "المطبخ الرئيسي",
+      "type": "kitchen",
+      "floor": "ground",
+      "status": "requirements-added",
+      "description": "Rectangular (Confirmed). The frying kitchen (مطبخ القلي) was cancelled and its area incorporated into the main kitchen (Confirmed). Original dimensions before expansion 3.7 × 4.3 m, superseded. Exact structural wall removal details Unknown. Layout: U-shaped perimeter kitchen with central island (Confirmed). CONFLICT 2: house-layout.md places the backyard east of the living room/kitchen; kitchen.md puts the backyard door and window on the kitchen's north wall and the east wall solid.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 5.4,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 4.3,
+          "certainty": "confirmed"
+        },
+        "source": "Final agreed dimensions 5.4 × 4.3 m (23.22 m²) — Confirmed. North/South walls = 5.4 m, East/West walls = 4.3 m."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length 5.4 m (Confirmed). Height Unknown. Gas: no confirmed point (Unknown). Electrical: required for coffee machine, locations Unknown. Plumbing/drainage: none confirmed (Unknown). Hood: none.",
+          "design": {
+            "furniture": "Base cabinets with continuous countertop sections where possible; NO upper cabinets; coffee station on the countertop. No sink, no dishwasher.",
+            "other": "Decorative wooden open shelves between the window and door / remaining spaces toward the living-room side, with climbing plants / small greenery. Lower cabinetry only, open and visually light."
+          }
+        },
+        "S": {
+          "notes": "Length 5.4 m (Confirmed). Height Unknown. Windows: none (blank wall, Confirmed). Doors: none documented (Unknown). AC: none specified (Unknown). Plumbing: sink requires services, exact location not documented. Hood: none.",
+          "design": {
+            "furniture": "Zone (no sizes): base + upper cabinets; Taj Mahal countertop continuous with the east-wall counter; one large single-bowl sink; dishwasher immediately east of the sink."
+          }
+        },
+        "E": {
+          "notes": "Length 4.3 m (Confirmed). Height Unknown. Doors: none. Windows: none. AC: none specified (Unknown). Gas point required for cooktop, exact position Unknown. No plumbing planned.",
+          "design": {
+            "furniture": "Zone (no sizes): base + upper cabinets and worktop connected to the south counter; gas cooktop centered in the wall composition; pull-out drawer between cooktop and built-in oven; hood above the cooktop; covered aluminum corner storage for small appliances."
+          }
+        },
+        "W": {
+          "notes": "Length 4.3 m (Confirmed). Height Unknown. Windows: none specified (Unknown). AC: none specified (Unknown). No plumbing, no hood. Not a working countertop wall.",
+          "design": {
+            "furniture": "Sequence north → south (no sizes): 1. sliding living-room door, 2. refrigerator, 3. freezer, 4. tall storage cabinetry (light-colored, not wood), 5. pantry in the southwest corner."
+          }
+        }
+      },
+      "elements": [
+        {
+          "type": "window",
+          "subtype": "Window",
+          "label": "Square window (backyard)",
+          "wall": "N",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Square window, approximately centered on the north wall — location Confirmed; width, height, sill and frame Unknown. Design request: opens from half (mechanism Unknown)."
+        },
+        {
+          "type": "door",
+          "subtype": "Single door",
+          "label": "Backyard glass door",
+          "wall": "N",
+          "status": "confirmed",
+          "preserve": true,
+          "notes": "Glass door at the eastern corner (northeast end) of the north wall, same plane as the window. Width, height, frame and swing/slider Unknown."
+        },
+        {
+          "type": "door",
+          "subtype": "Sliding door",
+          "label": "Living-room sliding door",
+          "wall": "W",
+          "status": "confirmed",
+          "preserve": true,
+          "swing": "sliding",
+          "notes": "At the northwest end/corner of the west wall, north of the refrigerator (Confirmed, repeatedly corrected). Dimensions Unknown."
+        },
+        {
+          "type": "ac",
+          "subtype": "",
+          "label": "Ceiling AC opening (square, centered)",
+          "placement": "free",
+          "center": true,
+          "status": "confirmed",
+          "preserve": false,
+          "notes": "Square opening centered in the gypsum ceiling — Confirmed design requirement (planned). Opening size, AC type/model and capacity Unknown."
+        }
+      ],
+      "layout": [
+        {
+          "name": "Kitchen island",
+          "category": "island",
+          "widthM": 2.2,
+          "depthM": 1.0,
+          "center": true,
+          "dimsStatus": "confirmed",
+          "notes": "Size 2.2 × 1.0 m Confirmed. Position Estimated (centered in the kitchen). Clearances ≈ 1.0–1.1 m are layout estimates, not measurements.",
+          "library": "Kitchen island"
+        }
+      ],
+      "requirements": [
+        {
+          "title": "Main kitchen expansion",
+          "description": "Merge the cancelled frying-kitchen area into the main kitchen, final size 5.4 × 4.3 m",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout/Space",
+          "source": "kitchen.md — Requirements. Source: your explicit dimension agreement"
+        },
+        {
+          "title": "Rectangular footprint",
+          "description": "Maintain a rectangular 5.4 × 4.3 m room",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "kitchen.md — Requirements. Source: agreed final dimensions"
+        },
+        {
+          "title": "Central island",
+          "description": "Include an island centered in the kitchen, 2.2 × 1.0 m",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "kitchen.md — Requirements. Source: your approval of the revised island dimensions"
+        },
+        {
+          "title": "Functional circulation",
+          "description": "Preserve practical circulation around the island",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "kitchen.md — Requirements. Source: discussion about reducing island size to improve movement; clearance values estimated"
+        },
+        {
+          "title": "North wall window",
+          "description": "Preserve the existing square window and keep the wall open visually",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "kitchen.md — Requirements. Source: your description"
+        },
+        {
+          "title": "Backyard glass door",
+          "description": "Keep the backyard entrance on the north wall, at its eastern corner",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "kitchen.md — Requirements. Source: your corrections"
+        },
+        {
+          "title": "Living-room sliding door",
+          "description": "Keep the sliding entrance on the west wall, at its northwest end, north of the refrigerator",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Architectural",
+          "source": "kitchen.md — Requirements. Source: repeated explicit corrections"
+        },
+        {
+          "title": "North-wall lower cabinetry",
+          "description": "Install lower cabinets with countertop only, without upper cabinets",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Cabinetry",
+          "source": "kitchen.md — Requirements. Source: your explicit instruction"
+        },
+        {
+          "title": "North-wall coffee station",
+          "description": "Place the coffee machine on the north countertop",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: your instruction"
+        },
+        {
+          "title": "North decorative shelves",
+          "description": "Install wooden open shelves in the spaces around the window and doors",
+          "category": "style",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Decor",
+          "source": "kitchen.md — Requirements. Source: your instruction"
+        },
+        {
+          "title": "Climbing plants",
+          "description": "Use small plants and climbing greenery on the north shelves",
+          "category": "style",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Decor",
+          "source": "kitchen.md — Requirements. Source: your instruction"
+        },
+        {
+          "title": "West tall-unit wall",
+          "description": "Use the west wall for tall storage and refrigerator/freezer instead of a normal worktop",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Storage",
+          "source": "kitchen.md — Requirements. Source: approved west-wall design"
+        },
+        {
+          "title": "West refrigerator",
+          "description": "Include a tall refrigerator",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: west-wall design"
+        },
+        {
+          "title": "West freezer",
+          "description": "Include a separate tall freezer adjacent to the refrigerator",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: west-wall design"
+        },
+        {
+          "title": "West light-colored tall cabinets",
+          "description": "Make the west wall's vertical storage units light-colored rather than wood-colored",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Cabinetry",
+          "source": "kitchen.md — Requirements. Source: your explicit correction"
+        },
+        {
+          "title": "Southwest pantry",
+          "description": "Include a pantry integrated into the southwest corner, connected to the kitchen storage/counter layout",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Storage",
+          "source": "kitchen.md — Requirements. Source: your correction to the layout"
+        },
+        {
+          "title": "South-wall cabinetry",
+          "description": "Install both upper and lower cabinets on the south wall",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Cabinetry",
+          "source": "kitchen.md — Requirements. Source: your agreed wall layout"
+        },
+        {
+          "title": "South-wall sink",
+          "description": "Include one large, single-bowl sink on the south wall",
+          "category": "functional",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Plumbing",
+          "source": "kitchen.md — Requirements. Source: your explicit specification"
+        },
+        {
+          "title": "Dishwasher placement",
+          "description": "Install dishwasher immediately east of the sink",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: your explicit specification"
+        },
+        {
+          "title": "East-wall cabinetry",
+          "description": "Include upper and lower cabinets and a worktop",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Cabinetry",
+          "source": "kitchen.md — Requirements. Source: your approved east-wall design"
+        },
+        {
+          "title": "East-wall cooktop",
+          "description": "Install a gas cooktop centrally within the east-wall cooking zone",
+          "category": "furniture",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: approved design"
+        },
+        {
+          "title": "Built-in oven",
+          "description": "Use a built-in oven arrangement under the cooktop",
+          "category": "furniture",
+          "priority": "preferred",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Appliances",
+          "source": "kitchen.md — Requirements. Source: your explicit preference"
+        },
+        {
+          "title": "Drawer above oven",
+          "description": "Include a pull-out drawer between the cooktop and oven",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Storage/Appliances",
+          "source": "kitchen.md — Requirements. Source: your correction"
+        },
+        {
+          "title": "Range hood",
+          "description": "Install a hood above the east-wall gas cooktop",
+          "category": "functional",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Ventilation",
+          "source": "kitchen.md — Requirements. Source: your specification"
+        },
+        {
+          "title": "East corner appliance storage",
+          "description": "Provide a corner storage area for small appliances, with an aluminum-covered corner treatment",
+          "category": "storage",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Storage",
+          "source": "kitchen.md — Requirements. Source: your explicit correction"
+        },
+        {
+          "title": "Connected perimeter corners",
+          "description": "Keep cabinetry/worktops connected around corners wherever possible, except at the living-room entrance and backyard entrance",
+          "category": "layout",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Layout",
+          "source": "kitchen.md — Requirements. Source: your explicit instruction"
+        },
+        {
+          "title": "Taj Mahal porcelain",
+          "description": "Use Taj Mahal color/appearance porcelain for the countertop",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Material",
+          "source": "kitchen.md — Requirements. Source: your explicit material selection"
+        },
+        {
+          "title": "Wood-look aluminum cabinetry",
+          "description": "Use aluminum cabinetry with wood-like appearance for selected cabinet finishes",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Material",
+          "source": "kitchen.md — Requirements. Source: your material list"
+        },
+        {
+          "title": "Cabinet color reversal",
+          "description": "Upper cabinets are wood-colored; lower cabinets are light-colored",
+          "category": "colors",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Color",
+          "source": "kitchen.md — Requirements. Source: your explicit reversal"
+        },
+        {
+          "title": "Parquet floor",
+          "description": "Use the same flooring as the living room",
+          "category": "materials",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Flooring",
+          "source": "kitchen.md — Requirements. Source: your explicit instruction"
+        },
+        {
+          "title": "Gypsum ceiling",
+          "description": "Install a gypsum ceiling",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: Ceiling",
+          "source": "kitchen.md — Requirements. Source: your specification"
+        },
+        {
+          "title": "Square ceiling AC opening",
+          "description": "Provide a square AC opening centered in the kitchen ceiling",
+          "category": "architectural",
+          "priority": "must",
+          "status": "included",
+          "kind": "want",
+          "group": "",
+          "notes": "Source category: HVAC",
+          "source": "kitchen.md — Requirements. Source: your specification"
+        },
+        {
+          "title": "Retaining a separate frying kitchen",
+          "description": "Rejected. Its area was merged into the main kitchen.",
+          "category": "layout",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Original smaller kitchen dimensions of 3.7 × 4.3 m",
+          "description": "Superseded by 5.4 × 4.3 m.",
+          "category": "layout",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Island at 2.4 × 1.0 m",
+          "description": "Superseded; revised to 2.2 × 1.0 m.",
+          "category": "layout",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Upper cabinets on north wall",
+          "description": "Rejected; north wall is lower cabinets only.",
+          "category": "storage",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Sink on north wall",
+          "description": "Rejected; sink belongs on south wall.",
+          "category": "functional",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Dishwasher on north wall",
+          "description": "Rejected.",
+          "category": "furniture",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Sink on east wall",
+          "description": "Rejected.",
+          "category": "functional",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Dishwasher or washing machine on east wall",
+          "description": "Rejected; that area is cabinetry/worktop only.",
+          "category": "furniture",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Living-room sliding door on east wall",
+          "description": "Rejected; it belongs on west wall.",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Living-room sliding door at the wrong end of west wall",
+          "description": "Rejected; it must be at the northwest end, north of the refrigerator.",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Backyard entrance on east wall",
+          "description": "Rejected; it is on the north wall at the northeast corner.",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Wrong placement/orientation of the backyard door",
+          "description": "Rejected; door and window are on the same north-wall plane.",
+          "category": "architectural",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Wood-colored west tall storage",
+          "description": "Rejected; west tall units must be light-colored.",
+          "category": "colors",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Disconnected perimeter corners",
+          "description": "Rejected, except where the living-room sliding door and backyard entrance interrupt the cabinetry.",
+          "category": "layout",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        },
+        {
+          "title": "Incorrect island/circulation proportions",
+          "description": "Rejected; island size was reduced to improve circulation.",
+          "category": "layout",
+          "priority": "must",
+          "status": "rejected",
+          "kind": "avoid",
+          "group": "Rejected ideas",
+          "notes": "",
+          "source": "kitchen.md — Rejected ideas"
+        }
+      ],
+      "constraints": [
+        "Final room size: 5.4 × 4.3 m",
+        "Frying kitchen is cancelled and merged into the main kitchen",
+        "North wall length: 5.4 m",
+        "South wall length: 5.4 m",
+        "East wall length: 4.3 m",
+        "West wall length: 4.3 m",
+        "Square window on north wall",
+        "Backyard glass door at northeast end of the north wall",
+        "Living-room sliding door at northwest end of west wall",
+        "Sliding door must be north of the refrigerator",
+        "Island: 2.2 × 1.0 m",
+        "Pantry at southwest corner",
+        "North wall has lower cabinets only",
+        "Coffee machine on north-wall countertop",
+        "Decorative shelves and plants on north wall",
+        "West wall refrigerator + freezer + tall storage",
+        "West tall cabinetry is light-colored, not wood",
+        "South wall sink and dishwasher",
+        "Dishwasher east of the sink",
+        "East wall gas cooktop + hood",
+        "Built-in oven below cooktop",
+        "Pull-out drawer between cooktop and oven",
+        "East corner small-appliance storage",
+        "Perimeter corners connected except at the two door areas",
+        "Taj Mahal porcelain countertop",
+        "Wood-colored upper cabinets and light-colored lower cabinets",
+        "Same parquet floor as living room",
+        "Gypsum ceiling with a square centered AC opening"
+      ],
+      "direction": {
+        "style": "Warm, natural, classic-inspired kitchen (Estimated interpretation of approved reference/design direction)",
+        "atmosphere": "",
+        "palette": [],
+        "paletteNotes": "No HEX codes in the kitchen file. Upper cabinets: warm oak / natural wood look (Confirmed). Lower cabinets: light beige / creamy neutral (Confirmed). West tall units: light color, not wood (Confirmed). Exact wood shade and lower-cabinet color code Unknown.",
+        "materials": "Aluminum cabinetry with wood-look finish where applicable (Confirmed material direction). Countertop: Taj Mahal-colored porcelain (Confirmed; exact slab/sample Unknown). Backsplash: coordinated light backsplash (Estimated; material/pattern unconfirmed). Handles: warm metal/brass-style (Estimated).",
+        "woodType": "Warm oak / natural wood look for upper cabinets (exact finish/species Unknown)",
+        "flooring": "Same parquet flooring as the living room (Confirmed)",
+        "wallFinishes": "",
+        "furnitureStyle": "U-shaped perimeter kitchen with a central island (Confirmed).",
+        "lighting": "Exact lighting plan not approved (Unknown). Under-cabinet lighting appears in generated concepts but is not approved (Unknown).",
+        "curtains": "",
+        "description": "Gypsum ceiling (Confirmed) with a square AC opening centered in the ceiling (Confirmed design requirement; AC type/model Unknown).",
+        "avoid": ""
+      },
+      "library": [
+        {
+          "name": "Kitchen island",
+          "category": "island",
+          "width": 2.2,
+          "depth": 1.0,
+          "notes": "Center of kitchen. Size 2.2 × 1.0 m Confirmed; position Estimated (centered). Countertop: Taj Mahal porcelain. Seating: 3 stools along one long side — Estimated. Storage Unknown. (kitchen.md)"
+        },
+        {
+          "name": "Refrigerator (tall)",
+          "category": "storage",
+          "width": null,
+          "depth": null,
+          "notes": "West wall, south of living-room door. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Freezer (tall)",
+          "category": "storage",
+          "width": null,
+          "depth": null,
+          "notes": "West wall, next to refrigerator. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Gas cooktop",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "East wall, central cooking zone. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Built-in oven",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "East wall, below cooktop. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Range hood",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "East wall, above cooktop. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Pull-out drawer (between cooktop and oven)",
+          "category": "storage",
+          "width": null,
+          "depth": null,
+          "notes": "East wall. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Dishwasher",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "South wall, east of sink. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Sink — one large single-bowl",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "South wall. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Coffee machine",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "North-wall countertop. Size Unknown. Included. (kitchen.md)"
+        },
+        {
+          "name": "Microwave",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "No dedicated position confirmed. Unknown. (kitchen.md)"
+        },
+        {
+          "name": "Small appliances",
+          "category": "other",
+          "width": null,
+          "depth": null,
+          "notes": "East-side appliance corner storage. Various. Included. (kitchen.md)"
+        },
+        {
+          "name": "Island stools",
+          "category": "chair",
+          "width": null,
+          "depth": null,
+          "notes": "Along one long side of the island; 3 stools — Estimated (not explicitly confirmed). (kitchen.md)"
+        }
+      ],
+      "missing": [
+        "Room & architecture: Ceiling height",
+        "Room & architecture: Exact square window width and height",
+        "Room & architecture: Window sill height",
+        "Room & architecture: Window frame/material/color",
+        "Room & architecture: Exact window opening mechanism (design request: open from half)",
+        "Room & architecture: Exact backyard glass-door width and height",
+        "Room & architecture: Backyard glass-door frame, swing/slider mechanism",
+        "Room & architecture: Exact living-room sliding door dimensions",
+        "Room & architecture: Structural details of the removed/merged frying kitchen wall",
+        "Room & architecture: Actual wall construction/thickness",
+        "Cabinet dimensions: Base cabinet height",
+        "Cabinet dimensions: Base cabinet depth",
+        "Cabinet dimensions: Upper cabinet height and depth",
+        "Cabinet dimensions: Tall storage unit heights/depths",
+        "Cabinet dimensions: Refrigerator and freezer widths and heights",
+        "Cabinet dimensions: Pantry dimensions, shelf configuration and door type",
+        "Cabinet dimensions: Small-appliance corner cabinet dimensions and internal configuration",
+        "Cabinet dimensions: Open shelf dimensions, number of shelves and spacing",
+        "Cabinet dimensions: Exact cabinet aluminum profile/design",
+        "Cabinet dimensions: Exact wood finish/species/texture/color code",
+        "Cabinet dimensions: Exact light cabinet color/HEX/RAL code",
+        "Cabinet dimensions: Cabinet internal accessories and drawer configuration",
+        "Island: Island storage configuration",
+        "Island: Island seating quantity (Estimated at 3, not confirmed)",
+        "Island: Seating side (not formally locked)",
+        "Island: Final island location relative to exact walls (Estimated)",
+        "Island: Island overhang dimensions",
+        "Island: Island electrical outlets",
+        "Appliances: Refrigerator make/model/size",
+        "Appliances: Freezer make/model/size",
+        "Appliances: Cooktop width, number of burners, model",
+        "Appliances: Built-in oven dimensions/model",
+        "Appliances: Range hood type, width, capacity, duct route",
+        "Appliances: Dishwasher size/model",
+        "Appliances: Coffee machine model/size",
+        "Appliances: Microwave location",
+        "Appliances: Small-appliance inventory for corner storage",
+        "Services & technical: Exact sink position and cutout dimensions",
+        "Services & technical: Sink model and faucet",
+        "Services & technical: Water supply location",
+        "Services & technical: Drain location",
+        "Services & technical: Dishwasher water/drain connections",
+        "Services & technical: Gas supply point location on east wall",
+        "Services & technical: Gas shut-off arrangement",
+        "Services & technical: Electrical outlet positions",
+        "Services & technical: Appliance-specific electrical loads/circuits",
+        "Services & technical: Coffee machine electrical outlet",
+        "Services & technical: Refrigerator/freezer electrical outlets",
+        "Services & technical: Island power/data connections",
+        "Services & technical: Hood duct/exhaust route",
+        "Services & technical: AC capacity/model",
+        "Services & technical: Exact square AC opening dimensions",
+        "Services & technical: Ceiling height/drop and gypsum details",
+        "Finish & design details: Exact Taj Mahal porcelain product, slab/sample, and finish",
+        "Finish & design details: Countertop thickness and edge profile",
+        "Finish & design details: Backsplash material and height",
+        "Finish & design details: Exact wood cabinet shade",
+        "Finish & design details: Exact lower-cabinet shade",
+        "Finish & design details: Handles/knobs selection",
+        "Finish & design details: Metal finish (brass, bronze, stainless, etc.)",
+        "Finish & design details: Lighting type and color temperature",
+        "Finish & design details: Under-cabinet lighting (not approved)",
+        "Finish & design details: Decorative styling and final plant selection",
+        "Finish & design details: Grout color, if applicable",
+        "Clearances (estimated from layout, to recalculate): North of island ≈ 1.1 m (Estimated)",
+        "Clearances (estimated from layout, to recalculate): South of island ≈ 1.1 m (Estimated)",
+        "Clearances (estimated from layout, to recalculate): West of island ≈ 1.0 m (Estimated)",
+        "Clearances (estimated from layout, to recalculate): East of island ≈ 1.1 m (Estimated)"
+      ],
+      "photos": [
+        {
+          "file": "المطبخ - نافذة مطلة على الفناء الخلفي.jpg",
+          "wall": "N",
+          "note": "Original kitchen window facing the backyard."
+        },
+        {
+          "file": "المطبخ - مدخل من الفناء الخلفي.jpg",
+          "wall": "N",
+          "note": "Original backyard entrance to the kitchen."
+        }
+      ]
+    },
+    {
+      "key": "suite",
+      "name": "Private Suite",
+      "nameAr": "الجناح الخاص",
+      "type": "bedroom",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Private bedroom suite (Confirmed). Shape: rectangular (Estimated). Closet and private bathroom form part of the suite — Confirmed; exact wall arrangement Unknown. Status: layout confirmed; interior design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 4.1,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 6.7,
+          "certainty": "confirmed"
+        },
+        "source": "4.1 × 6.7 m — original plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "door dimensions/positions",
+        "windows and measurements",
+        "AC",
+        "structural features"
+      ],
+      "photos": []
+    },
+    {
+      "key": "suite-closet",
+      "name": "Private Suite Closet",
+      "nameAr": "غرفة ملابس الجناح الخاص",
+      "type": "other",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Walk-in closet / dressing room (Confirmed). Shape: rectangular (Estimated). Associated with the Private Suite — Confirmed; exact shared walls Unknown. Built-in wardrobe configuration Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 3.9,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "source": "3.9 × 2.6 m — plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door details",
+        "window",
+        "wardrobe layout",
+        "AC"
+      ],
+      "photos": []
+    },
+    {
+      "key": "suite-bath",
+      "name": "Private Suite Bathroom",
+      "nameAr": "حمام الجناح الخاص",
+      "type": "bathroom",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Private bathroom (Confirmed). Shape: rectangular (Estimated). Private suite/closet vicinity — Confirmed generally; exact walls Unknown. Plumbing layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 3.9,
+          "certainty": "confirmed"
+        },
+        "source": "2.6 × 3.9 m — plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door",
+        "window",
+        "ventilation",
+        "plumbing and fixture layout"
+      ],
+      "photos": []
+    },
+    {
+      "key": "backyard",
+      "name": "Backyard",
+      "nameAr": "الفناء الخلفي",
+      "type": "backyard",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Outdoor courtyard/backyard (Confirmed). Shape: rectangular (Estimated). East of the living room and kitchen — Confirmed (house-layout.md; see CONFLICT 2). Kitchen access/glass entrance — Confirmed; living-room windows face the backyard — Confirmed; sizes Unknown. Status: dimensions confirmed; landscaping/design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 7,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 5.4,
+          "certainty": "confirmed"
+        },
+        "source": "7 × 5.4 m — revised user dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Exact boundary shape",
+        "levels",
+        "drainage",
+        "landscaping",
+        "privacy screens",
+        "outdoor lighting",
+        "outdoor AC units"
+      ],
+      "photos": []
+    },
+    {
+      "key": "north-corridor",
+      "name": "North Side Corridor",
+      "nameAr": "الممر الجانبي الشمالي",
+      "type": "corridor",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Side access passage (Confirmed). Long linear corridor (Confirmed/Estimated). Runs from the entry area toward the backyard on the north side — Confirmed. Living-room entrance from the corridor — Confirmed; other door details Unknown. Status: route and dimensions confirmed; detailed design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.9,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 23,
+          "certainty": "confirmed"
+        },
+        "source": "1.9 × 23 m — user-revised dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Gate/door details",
+        "levels",
+        "drainage",
+        "lighting",
+        "wall heights",
+        "overhead cover",
+        "fixed elements"
+      ],
+      "photos": []
+    },
+    {
+      "key": "bedroom-1",
+      "name": "Bedroom 1",
+      "nameAr": "غرفة النوم 1",
+      "type": "bedroom",
+      "floor": "first",
+      "status": "not-started",
+      "description": "Bedroom (Confirmed). Shape: rectangular (Estimated). Bedroom 2 and shared bathroom in the same bedroom zone — plan; exact walls Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 3.9,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 4.9,
+          "certainty": "confirmed"
+        },
+        "source": "3.9 × 4.9 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "doors",
+        "windows and their measurements",
+        "AC",
+        "structural elements",
+        "exact adjacency"
+      ],
+      "photos": []
+    },
+    {
+      "key": "bedroom-2",
+      "name": "Bedroom 2",
+      "nameAr": "غرفة النوم 2",
+      "type": "bedroom",
+      "floor": "first",
+      "status": "not-started",
+      "description": "Bedroom (Confirmed). Shape: rectangular (Estimated). Bedroom 1 and shared bathroom vicinity — plan; exact walls Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 3.9,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 4.9,
+          "certainty": "confirmed"
+        },
+        "source": "3.9 × 4.9 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "doors",
+        "windows and their measurements",
+        "AC",
+        "structural elements",
+        "exact adjacency"
+      ],
+      "photos": []
+    },
+    {
+      "key": "bedrooms-bath",
+      "name": "Shared Bedroom Bathroom",
+      "nameAr": "حمام الغرف",
+      "type": "bathroom",
+      "floor": "first",
+      "status": "not-started",
+      "description": "Shared bathroom (Confirmed). Shape: rectangular (Estimated). Bedroom zone — Confirmed generally; exact shared walls Unknown. Plumbing layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 2.3,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.5,
+          "certainty": "confirmed"
+        },
+        "source": "2.3 × 2.5 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door",
+        "window",
+        "ventilation",
+        "plumbing fixtures",
+        "exact adjacency"
+      ],
+      "photos": []
+    },
+    {
+      "key": "master",
+      "name": "Master Bedroom",
+      "nameAr": "غرفة النوم الرئيسية",
+      "type": "master-bedroom",
+      "floor": "first",
+      "status": "not-started",
+      "description": "Master bedroom (Confirmed). Shape: rectangular (Estimated). Master bathroom adjacent — Confirmed; exact shared walls Unknown. Status: revised dimensions confirmed; interior design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 9.4,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 4,
+          "certainty": "confirmed"
+        },
+        "source": "9.4 × 4 m — revised by user. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "doors and their measurements",
+        "windows and sill heights",
+        "AC",
+        "columns/beams",
+        "detailed room configuration"
+      ],
+      "photos": []
+    },
+    {
+      "key": "master-bath",
+      "name": "Master Bathroom",
+      "nameAr": "حمام غرفة النوم الرئيسية",
+      "type": "bathroom",
+      "floor": "first",
+      "status": "not-started",
+      "description": "Private master bathroom (Confirmed). Shape: rectangular (Estimated). Master bedroom adjacent — Confirmed; exact walls Unknown. Plumbing layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.8,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.4,
+          "certainty": "confirmed"
+        },
+        "source": "1.8 × 2.4 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door",
+        "window",
+        "ventilation",
+        "plumbing and fixture arrangement"
+      ],
+      "photos": []
+    },
+    {
+      "key": "upper-lounge",
+      "name": "Upper Lounge",
+      "nameAr": "الصالة العلوية",
+      "type": "family-lounge",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Family lounge (Confirmed). Shape: rectangular (Estimated). Upper floor hallway, service rooms and terrace nearby — plan; exact walls Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 4.7,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 6.7,
+          "certainty": "confirmed"
+        },
+        "source": "4.7 × 6.7 m — revised table. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "door dimensions",
+        "window dimensions",
+        "AC locations",
+        "structural columns/beams"
+      ],
+      "photos": []
+    },
+    {
+      "key": "upper-lounge-bath",
+      "name": "Upper Lounge Bathroom",
+      "nameAr": "حمام الصالة العلوية",
+      "type": "bathroom",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Bathroom (Confirmed). Shape: rectangular (Estimated). Upper lounge and service zone — plan; exact walls Unknown. Plumbing layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 2.3,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "source": "2.3 × 2.6 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door",
+        "window",
+        "ventilation",
+        "plumbing details"
+      ],
+      "photos": []
+    },
+    {
+      "key": "hallway",
+      "name": "Hallway",
+      "nameAr": "الردهة",
+      "type": "corridor",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Hallway / circulation (Confirmed). Shape: linear/rectangular (Estimated). Upper lounge and service rooms — plan; exact wall relationships Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.6,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 3.3,
+          "certainty": "confirmed"
+        },
+        "source": "1.6 × 3.3 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "doors",
+        "windows",
+        "AC",
+        "exact circulation dimensions"
+      ],
+      "photos": []
+    },
+    {
+      "key": "laundry",
+      "name": "Laundry Room",
+      "nameAr": "غرفة الغسيل",
+      "type": "laundry",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Laundry / utility (Confirmed). Shape: rectangular (Estimated). Service area and hallway — plan; exact shared walls Unknown. Washer, dryer, sink and storage locations Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 3.5,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 3.4,
+          "certainty": "confirmed"
+        },
+        "source": "3.5 × 3.4 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door/window",
+        "ventilation",
+        "appliance and sink arrangement",
+        "drainage"
+      ],
+      "photos": []
+    },
+    {
+      "key": "maid",
+      "name": "Maid's Room",
+      "nameAr": "غرفة العاملة المنزلية",
+      "type": "bedroom",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Bedroom (Confirmed). Shape: rectangular (Estimated). Maid's bathroom and service zone — plan; exact shared walls Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.8,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 3.2,
+          "certainty": "confirmed"
+        },
+        "source": "1.8 × 3.2 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "door",
+        "windows",
+        "AC",
+        "structural elements"
+      ],
+      "photos": []
+    },
+    {
+      "key": "maid-bath",
+      "name": "Maid's Bathroom",
+      "nameAr": "حمام العاملة المنزلية",
+      "type": "bathroom",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Bathroom (Confirmed). Shape: rectangular (Estimated). Maid's room and service zone — plan; exact shared walls Unknown. Plumbing layout Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 1.85,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 2.6,
+          "certainty": "confirmed"
+        },
+        "source": "1.85 × 2.6 m — plan. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Door",
+        "window",
+        "ventilation",
+        "plumbing layout"
+      ],
+      "photos": []
+    },
+    {
+      "key": "rear-terrace",
+      "name": "Rear Terrace",
+      "nameAr": "السطح الخلفي",
+      "type": "roof-terrace",
+      "floor": "second",
+      "status": "not-started",
+      "description": "Outdoor terrace/roof (Confirmed). Shape: rectangular (Estimated). Upper floor — plan; exact boundary relationships Unknown. Parapet, shading, landscaping and other features Unknown. Status: layout confirmed; design Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": 3.6,
+          "certainty": "confirmed"
+        },
+        "width": {
+          "m": 4.5,
+          "certainty": "confirmed"
+        },
+        "source": "3.6 × 4.5 m — plan dimensions. Which side is east–west is not documented."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Parapet heights",
+        "drainage",
+        "waterproofing",
+        "door",
+        "shading",
+        "AC units",
+        "final outdoor arrangement"
+      ],
+      "photos": []
+    },
+    {
+      "key": "stairs",
+      "name": "Staircase",
+      "nameAr": "الدرج",
+      "type": "stairs",
+      "floor": "ground",
+      "status": "not-started",
+      "description": "Internal staircase connecting the floors (Confirmed by plan). Shape Unknown. South side of the living room — Confirmed (user message). Stair configuration and landing details visible in plan; exact structural data Unknown. Status: location confirmed; details Unknown.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": null,
+          "certainty": "unknown"
+        },
+        "width": {
+          "m": null,
+          "certainty": "unknown"
+        },
+        "source": "Dimensions Unknown."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Ceiling height",
+        "Exact width",
+        "tread/riser measurements",
+        "number of steps",
+        "landings",
+        "railing",
+        "headroom",
+        "structural details"
+      ],
+      "photos": []
+    },
+    {
+      "key": "west-facade",
+      "name": "West Façade",
+      "nameAr": "الواجهة الغربية",
+      "type": "front-facade",
+      "floor": null,
+      "status": "not-started",
+      "description": "Street-facing façade, exterior spanning the floors (Confirmed). Precise geometry Unknown. Majlis side is west — Confirmed. Original façade image available; no approved façade modifications documented.",
+      "geometry": {
+        "shape": "rectangle",
+        "length": {
+          "m": null,
+          "certainty": "unknown"
+        },
+        "width": {
+          "m": null,
+          "certainty": "unknown"
+        },
+        "source": "Overall façade dimensions Unknown."
+      },
+      "walls": {
+        "N": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "E": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "S": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        },
+        "W": {
+          "notes": "Length Unknown. Height Unknown. Doors, windows and AC on this wall Unknown.",
+          "design": {}
+        }
+      },
+      "elements": [],
+      "layout": [],
+      "requirements": [],
+      "constraints": [],
+      "direction": null,
+      "library": [],
+      "missing": [
+        "Overall dimensions",
+        "material specifications",
+        "exact openings and door measurements",
+        "elevations",
+        "lighting"
+      ],
+      "photos": []
+    }
+  ]
+}

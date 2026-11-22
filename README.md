@@ -82,6 +82,18 @@ Open the site in Chrome on Android → menu **⋮** → **Add to Home screen** (
   and every original file. *Import* checks the file and shows a summary before replacing
   anything, and creates a restore point first.
 
+## Your house data (Import & Merge)
+
+The verified house data from `source-data/` (`kitchen.md`, `living-room.md`,
+`house-layout.md`) is turned into `source-data/bait-khuzam-import.json` by
+`python3 scripts/build-khuzam-import.py`. The same file ships with the app.
+
+In the app: **Settings → Data safety → Import & Merge → Use the included house data**.
+You see a preview first. It **adds only**: nothing is deleted or overwritten, and a
+restore point is made before anything is added. Rooms you already have stay unchanged
+unless you choose **Add to my room**; then only empty fields are filled and new items
+added, and the differences are shown. Running it again adds nothing new.
+
 ## Working without an image API
 
 No API key is needed. In the **Design Studio**:

@@ -50,6 +50,7 @@ import { useConfirm } from '@/components/ui/Confirm';
 import { EnglishField } from '@/components/translate/EnglishField';
 import { SignOutButton } from '@/app/auth/AuthScreens';
 import { ImageProviderSettings, TextProviderSettings } from './ProviderSettings';
+import { ImportMergeCard } from './ImportMerge';
 
 function Section({
   id,
@@ -732,6 +733,9 @@ export function SettingsPage() {
               </ButtonLink>
             </div>
           </Card>
+          <div className="max-w-[760px]">
+            <ImportMergeCard />
+          </div>
           <div className="max-w-[760px]">
             <div className="eyebrow mb-2 flex items-center gap-1.5">
               <History size={12} /> {S.historyTitle}

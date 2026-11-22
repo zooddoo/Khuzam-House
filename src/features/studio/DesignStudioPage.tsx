@@ -194,8 +194,9 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
       capabilities: active?.ready ? active.capabilities : null,
       houseGuidelines: settings.houseGuidelines,
       translations,
+      rejectedRequirements: (requirements ?? []).filter((r) => r.status === 'rejected'),
     });
-  }, [room, ctxSettings, references, settings, translations, project, floors, includedReqs, library, baseVersion, active?.ready, active?.capabilities]);
+  }, [room, ctxSettings, references, settings, translations, requirements, project, floors, includedReqs, library, baseVersion, active?.ready, active?.capabilities]);
 
   const pkg = useMemo(() => {
     if (!basePkg) return null;

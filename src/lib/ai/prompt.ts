@@ -75,6 +75,8 @@ export interface PackageContext {
   houseGuidelines: string;
   /** English wording for Arabic texts (translation memory). */
   translations?: Map<string, Translation>;
+  /** Ideas the homeowner rejected: listed so the model does not reintroduce them. */
+  rejectedRequirements?: Requirement[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -279,6 +281,7 @@ function englishContext(ctx: PackageContext): { ctx: PackageContext; missing: st
     room: deep(room),
     floorName: ctx.floorName ? conv(ctx.floorName) : null,
     requirements: deep(ctx.requirements),
+    rejectedRequirements: deep(ctx.rejectedRequirements ?? []),
     references: deep(ctx.references),
     libraryItems: deep(ctx.libraryItems),
     baseVersion: ctx.baseVersion,
@@ -548,6 +551,21 @@ function buildEnglishPackage(ctx: PackageContext): GenerationPackage {
             `- ${p.index > 0 ? `The look shown in Image ${p.index}` : quote(p.caption) || 'A reference image'}${p.explanation ? ` — ${p.explanation}` : ''}`,
         ),
       ].join('\n')}`,
+    });
+  }
+
+  const rejectedIdeas = (ctx.rejectedRequirements ?? []).filter((r) => r.status === 'rejected' && (r.title.trim() || r.description.trim()));
+  if (rejectedIdeas.length) {
+    sections.push({
+      id: 'rejected',
+      priority: 1,
+      text: `PREVIOUSLY REJECTED IDEAS — DO NOT USE\n${rejectedIdeas
+        .map((r) => {
+          const t = r.title.trim() || r.description.trim();
+          const d = r.description.trim() && r.description.trim() !== t ? ` — ${r.description.trim().replace(/\s+/g, ' ')}` : '';
+          return `- ${t}${d}`;
+        })
+        .join('\n')}`,
     });
   }
 
