@@ -145,7 +145,7 @@ export function ImageProviderSettings({ settings }: { settings: AppSettings }) {
       </div>
 
       {provider && (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <div className="flex flex-col gap-4">
             {provider.needsBaseUrl && (
               <Field label={T.baseUrl} hint={T.baseUrlHint}>

@@ -75,7 +75,7 @@ export function OverviewTab({
   const concept = lang === 'ar' ? room.preliminaryConceptAr || room.preliminaryConcept : room.preliminaryConcept;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)] lg:gap-10">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)] lg:gap-10">
       <div className="flex flex-col gap-10">
         <div className="group relative overflow-hidden rounded-md border border-line">
           <RoomCover room={room} className="aspect-[16/9]" />

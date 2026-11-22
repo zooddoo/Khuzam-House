@@ -483,7 +483,7 @@ export function RoomPlanEditor({ room, onEditElement }: { room: Room; onEditElem
 
       {estimatedDims && <Callout tone="warn">{E.estimatedDims}</Callout>}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div ref={canvasRef} className="relative h-[clamp(340px,calc(100dvh-260px),780px)] overflow-hidden rounded-md border border-line">
           <div
             ref={svgWrap}

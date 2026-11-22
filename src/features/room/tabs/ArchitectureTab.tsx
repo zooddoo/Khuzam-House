@@ -91,7 +91,7 @@ export function ArchitectureTab({ room, references }: { room: Room; references: 
   };
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-10">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-10">
       <div className="flex flex-col gap-7">
         <div>
           <h2 className="display text-[28px]">{A.title}</h2>

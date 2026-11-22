@@ -380,7 +380,7 @@ export function FloorPlansPage() {
           </div>
 
           {floor && (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <div className="inline-flex rounded-sm border border-line bg-mist/70 p-0.5">

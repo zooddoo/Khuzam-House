@@ -796,6 +796,7 @@ export const en = {
   },
 
   plan: {
+    missing: (list: string) => `Missing: ${list}`,
     previewEmpty: 'Enter the room dimensions to see its plan',
     north: 'N',
     elementShort: { ac: 'AC', beam: 'beam', recess: 'recess', electrical: '•' } as Record<string, string>,

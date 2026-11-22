@@ -219,7 +219,7 @@ function ReferencesTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div ref={dropRef} className="grid gap-3 md:grid-cols-[230px_minmax(0,1fr)]">
+      <div ref={dropRef} className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[230px_minmax(0,1fr)]">
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-col">
           <Select value={uploadKind} onChange={(e) => setUploadKind(e.target.value as ReferenceKind)} aria-label={L.uploadAs}>
             {REFERENCE_KINDS.filter((k) => k.value !== 'generated').map((k) => (
@@ -416,7 +416,7 @@ function CompareTab({ comparisonId }: { comparisonId: string | null }) {
   const items = parseItemsParam(params.get('items'));
   if (comparisonId && comparison === undefined) return <LoadingBlock />;
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
       <CompareWorkspace key={comparison?.id ?? params.get('items') ?? 'new'} comparison={comparison ?? null} initialItems={items} />
       <aside>
         <div className="mb-3 flex items-center justify-between">

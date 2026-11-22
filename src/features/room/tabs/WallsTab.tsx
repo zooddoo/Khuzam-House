@@ -135,7 +135,7 @@ export function WallsTab({ room, references }: { room: Room; references: Referen
         ))}
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
           <div>
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">

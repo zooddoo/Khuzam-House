@@ -392,7 +392,7 @@ export function RenderSettings({
   const aspects = caps?.aspects.length ? ASPECTS.filter((a) => caps.aspects.includes(a.value)) : ASPECTS;
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
         <Field label={T.cameraAngle}>
           <Select value={settings.cameraAngle} onChange={(e) => onChange({ cameraAngle: e.target.value as GenerationSettings['cameraAngle'] })}>
             {CAMERA_ANGLES.map((a) => (
@@ -436,7 +436,7 @@ export function RenderSettings({
         />
       </Field>
       <EnglishField source={settings.cameraNotes} compact />
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
         <Field label={T.light}>
           <Segmented
             size="sm"

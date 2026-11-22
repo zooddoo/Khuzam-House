@@ -10,9 +10,13 @@ export function useElementSize<T extends HTMLElement>() {
   const [size, setSize] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     if (!el) return;
+    // Measure the content box (inside borders and padding). Sizing a child
+    // from the border box makes it slightly wider than the space it has, which
+    // can grow an auto-sized parent on every measurement (endless widening).
     const update = () => {
-      const r = el.getBoundingClientRect();
-      setSize((s) => (Math.abs(s.width - r.width) > 0.5 || Math.abs(s.height - r.height) > 0.5 ? { width: r.width, height: r.height } : s));
+      const width = Math.floor(el.clientWidth - pad(el, 'Left') - pad(el, 'Right'));
+      const height = Math.floor(el.clientHeight - pad(el, 'Top') - pad(el, 'Bottom'));
+      setSize((s) => (s.width !== width || s.height !== height ? { width: Math.max(0, width), height: Math.max(0, height) } : s));
     };
     update();
     const ro = new ResizeObserver(update);
@@ -20,4 +24,8 @@ export function useElementSize<T extends HTMLElement>() {
     return () => ro.disconnect();
   }, [el]);
   return [setEl, size] as const;
+}
+
+function pad(el: HTMLElement, side: 'Left' | 'Right' | 'Top' | 'Bottom'): number {
+  return parseFloat(getComputedStyle(el)[`padding${side}`]) || 0;
 }

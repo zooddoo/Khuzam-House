@@ -131,7 +131,7 @@ export function HomePage() {
         )}
       </section>
 
-      <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section>
           <SectionHeader
             title={t.home.recentlyUpdated}

@@ -369,7 +369,7 @@ function RequirementCard({
 
         {expanded && (
           <div className="border-t border-line px-4 pb-4 pt-4 sm:ps-[52px]">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
               <Field label={t.reqs.fieldTitle} className="md:col-span-2">
                 <CommitInput value={req.title} onCommit={(v) => updateRequirement(req.id, { title: v })} aria-label={t.reqs.fieldTitle} />
               </Field>

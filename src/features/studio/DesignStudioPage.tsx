@@ -340,7 +340,7 @@ function StudioForRoom({ roomId, fromVersionId }: { roomId: ID; fromVersionId: s
         </div>
       </div>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-8">
           {(pkg.untranslated.length > 0 || pkg.translationsUsed.length > 0) && (
             <TranslationsSection untranslated={pkg.untranslated} used={pkg.translationsUsed} textProvider={settings.textProvider} />

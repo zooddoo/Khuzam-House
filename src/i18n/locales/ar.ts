@@ -848,6 +848,7 @@ export const ar: Messages = {
   },
 
   plan: {
+    missing: (list: string) => `ناقص: ${list}`,
     previewEmpty: 'أدخل أبعاد الغرفة لرؤية مخططها',
     north: 'ش',
     elementShort: { ac: 'مكيف', beam: 'جسر', recess: 'تجويف', electrical: '•' } as Record<string, string>,

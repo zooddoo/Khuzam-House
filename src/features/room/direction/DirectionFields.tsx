@@ -34,7 +34,7 @@ export function DirectionFieldsEditor({ value, onChange }: { value: DesignDirect
     </div>
   );
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
       {DIRECTION_TEXT_FIELDS.filter((f) => !f.multiline).map((f) => field(f))}
       <Field label={D.palette} className="md:col-span-2">
         <PaletteEditor value={value.palette} onChange={(palette) => onChange({ palette })} />

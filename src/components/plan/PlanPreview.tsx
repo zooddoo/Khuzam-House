@@ -41,18 +41,20 @@ export function PlanPreview({
   return (
     <div
       ref={ref}
-      className={cn('relative w-full overflow-hidden rounded-md border border-line bg-surface', className)}
+      className={cn('relative w-full min-w-0 max-w-full overflow-hidden rounded-md border border-line bg-surface', className)}
       style={{ height: height === 'fill' ? '100%' : height }}
     >
       {!shape.drawable ? (
         <div className="hairline-grid absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-[12.5px] text-ink-3">
           <Ruler size={18} strokeWidth={1.5} className="text-ink-4" />
           <span>{emptyLabel ?? tr().plan.previewEmpty}</span>
-          {shape.missing.length > 0 && !minimal && <span className="text-[11.5px] text-ink-4">Missing: {shape.missing.join(', ')}</span>}
+          {shape.missing.length > 0 && !minimal && <span className="text-[11.5px] text-ink-4">{tr().plan.missing(shape.missing.join('، '))}</span>}
         </div>
       ) : (
         size.width > 0 &&
         h > 0 && (
+          // Absolutely positioned so the drawing never adds to the layout width.
+          <div className="absolute inset-0">
           <PlanSvg
             room={room}
             shape={shape}
@@ -73,6 +75,7 @@ export function PlanPreview({
             onElementPointerDown={onElementClick ? (_e, el) => onElementClick(el) : undefined}
             onWallPointerDown={onWallClick ? (_e, sg) => onWallClick(sg) : undefined}
           />
+          </div>
         )
       )}
     </div>

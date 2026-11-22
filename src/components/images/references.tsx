@@ -221,7 +221,7 @@ export function ReferenceEditor({ reference, open, onOpenChange }: { reference: 
         </>
       }
     >
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div className="flex flex-col gap-3">
           <ImageThumb
             imageId={reference.imageId}

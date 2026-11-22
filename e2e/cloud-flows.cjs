@@ -65,6 +65,21 @@ async function waitSaved(page, timeout = 15000) {
     });
   });
 
+  // 1b. Dimensions page stays the width of the screen while typing (regression: it used to keep growing)
+  await page.goto(`${BASE}/rooms/${roomId}/dimensions`);
+  const dims = page.locator('input[inputmode="decimal"]');
+  await dims.nth(0).fill('12');
+  await dims.nth(1).fill('9');
+  await dims.nth(1).blur();
+  await page.waitForTimeout(2500);
+  const widths = await page.evaluate(() => {
+    const m = document.querySelector('main');
+    const right = Math.max(...Array.from(m.querySelectorAll('*')).filter((e) => !e.closest('.overflow-x-auto,.sr-only,svg')).map((e) => e.getBoundingClientRect().right));
+    return { scroll: m.scrollWidth, client: m.clientWidth, right, viewport: innerWidth };
+  });
+  assert.ok(widths.scroll <= widths.client && widths.right <= widths.viewport + 1, `dimensions page wider than screen: ${JSON.stringify(widths)}`);
+  console.log('✓ dimensions page stays within the screen width');
+
   // 2. Requirement with a photo and a PDF
   await page.goto(`${BASE}/rooms/${roomId}/requirements`);
   await page.getByLabel('New requirement').fill('Reading corner by the window — see attached plan');

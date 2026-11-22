@@ -65,7 +65,7 @@ export function PhotosTab({ room, references }: { room: Room; references: Refere
         <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-ink-3">{P.lead}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-stretch">
         <Field label={P.uploadAs}>
           <Select value={kind} onChange={(e) => setKind(e.target.value as ReferenceKind)}>
             {REFERENCE_KINDS.filter((k) => k.value !== 'generated').map((k) => (

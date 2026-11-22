@@ -66,7 +66,7 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-6 border-t border-line py-8 first:border-t-0 first:pt-0 sm:py-10">
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6">
         <div>
           <h2 className="display flex items-center gap-2 text-[24px] sm:text-[26px]">
             {Icon && <Icon size={18} strokeWidth={1.5} className="text-ink-3" />}

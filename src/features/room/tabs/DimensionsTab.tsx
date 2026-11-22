@@ -158,8 +158,8 @@ export function DimensionsTab({ room }: { room: Room }) {
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-10">
-        <div className="flex flex-col gap-9">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:gap-10">
+        <div className="flex min-w-0 flex-col gap-9">
           <section>
             <GroupLabel>{D.unitsSource}</GroupLabel>
             <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
@@ -304,7 +304,7 @@ export function DimensionsTab({ room }: { room: Room }) {
           </section>
         </div>
 
-        <aside className="flex flex-col gap-5 xl:sticky xl:top-4 xl:self-start">
+        <aside className="flex min-w-0 flex-col gap-5 xl:sticky xl:top-4 xl:self-start">
           <PlanPreview room={room} height={320} highlightWallId={hoverWall} />
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-4">
             <Metric label={D.floorArea} value={shape.area.mm2 === null ? t.common.unknown : formatArea(shape.area.mm2)} certainty={shape.area.certainty} />

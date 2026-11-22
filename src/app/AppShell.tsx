@@ -232,7 +232,7 @@ export function AppShell() {
             <Search size={18} />
           </button>
         </header>
-        <main id="main-scroll" className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+        <main id="main-scroll" className="scroll-thin min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="mx-auto w-full max-w-[1480px] px-4 pb-[calc(env(safe-area-inset-bottom)+96px)] pt-5 sm:px-8 lg:px-12 lg:pb-24 lg:pt-10">
             <InstallPrompt />
             <Outlet />
